@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Akıllı Doktor Asistanı - Profesyonel hastane yönetim sistemi.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="akilli_doktor_asistani">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Akıllı Doktor Asistanı</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!-- Yükleme ekranı (splash screen) -->
+  <div id="loading" style="position: fixed; inset: 0; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #ffffff;">
+    <img src="favicon.png" alt="Logo" width="96" height="96" style="margin-bottom: 24px;">
+    <div style="width: 100px; height: 4px; background-color: #f3f3f3; border-radius: 2px; overflow: hidden; position: relative;">
+      <div id="progress-bar" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background-color: #2196F3; transition: width 0.3s ease-in-out;"></div>
+    </div>
+  </div>
+
+  <script src="flutter_bootstrap.js" async></script>
+  
+  <script>
+    // Yükleme animasyonu
+    let progressBar = document.getElementById('progress-bar');
+    let progress = 0;
+    let interval = setInterval(() => {
+      progress += 1;
+      if (progress > 100) {
+        clearInterval(interval);
+      } else {
+        progressBar.style.width = progress + '%';
+      }
+    }, 20);
+
+    window.addEventListener('flutter-first-frame', function() {
+      document.getElementById('loading').style.opacity = '0';
+      document.getElementById('loading').style.transition = 'opacity 0.4s ease-out';
+      setTimeout(function() {
+        document.getElementById('loading').style.display = 'none';
+      }, 400);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "279388429798",
+    "project_id": "akilli-doktor-asistani-2a135",
+    "storage_bucket": "akilli-doktor-asistani-2a135.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:279388429798:android:af171501f2ef8e43328a27",
+        "android_client_info": {
+          "package_name": "com.miray.akillidoktorasistani"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8gH_5M95EG5n9tBjj_vRVRqWwkvPmvvA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
