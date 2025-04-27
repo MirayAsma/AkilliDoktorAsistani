@@ -9,7 +9,22 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1e26b1d0-53c6-43af-80e1-0025d40ebec1" name="Changes" comment="" />
+    <list default="true" id="1e26b1d0-53c6-43af-80e1-0025d40ebec1" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.dart_tool/package_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/.dart_tool/package_config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/res/values/colors.xml" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/values/colors.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/ai_analysis_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/ai_analysis_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/hasta_detay_dialog.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/hasta_detay_dialog.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/patient_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/patient_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/patients_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/patients_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/settings_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/settings_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/tahlil_analiz_raporu_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/tahlil_analiz_raporu_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/test_results_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/test_results_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/theme/app_theme.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/theme/app_theme.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/toplu_veri_ekle.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/toplu_veri_ekle.dart" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -58,6 +73,7 @@
     &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/miray/OneDrive/Desktop/Mobil&quot;,

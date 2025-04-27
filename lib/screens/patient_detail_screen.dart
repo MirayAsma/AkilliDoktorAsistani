@@ -161,6 +161,28 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
                       ],
                     ),
                   ),
+                  if (widget.patient['name'] != null)
+                    _buildInfoRow('Ad Soyad', widget.patient['name'].toString()),
+                  if (widget.patient['age'] != null)
+                    _buildInfoRow('Yaş', widget.patient['age'].toString()),
+                  if (widget.patient['gender'] != null)
+                    _buildInfoRow('Cinsiyet', widget.patient['gender'].toString()),
+                  if (widget.patient['complaint'] != null)
+                    _buildInfoRow('Başvuru Şikayeti', widget.patient['complaint'].toString()),
+                  if (widget.patient['surgery'] != null)
+                    _buildInfoRow('Ameliyat', widget.patient['surgery'].toString()),
+                  if (widget.patient['pathology'] != null)
+                    _buildInfoRow('Patoloji', widget.patient['pathology'].toString()),
+                  if (widget.patient['birthHistory'] != null)
+                    _buildInfoRow('Doğum Öyküsü', widget.patient['birthHistory'].toString()),
+                  if (widget.patient['bloodPressure'] != null)
+                    _buildInfoRow('Tansiyon', widget.patient['bloodPressure'].toString()),
+                  if (widget.patient['pulse'] != null)
+                    _buildInfoRow('Nabız', widget.patient['pulse'].toString()),
+                  if (widget.patient['temperature'] != null)
+                    _buildInfoRow('Ateş', widget.patient['temperature'].toString()),
+                  if (widget.patient['previousTreatment'] != null)
+                    _buildInfoRow('Önceki Tedavi', widget.patient['previousTreatment'].toString()),
                   _buildInfoRow('Hasta No', '#${10000 + (widget.patient['id'] as int)}'),
                   _buildInfoRow('TC Kimlik No', '${11111111110 + (widget.patient['id'] as int)}'),
                   _buildInfoRow('Durum', widget.patient['condition'] as String),
@@ -512,13 +534,97 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
   }
 
   Widget _buildInfoRow(String label, String value) {
+    IconData icon;
+    Color iconColor;
+    
+    // Her etiket için uygun ikon ve renk belirleme
+    switch(label) {
+      case 'Ad Soyad':
+        icon = Icons.person;
+        iconColor = Colors.blue.shade600;
+        break;
+      case 'Yaş':
+        icon = Icons.calendar_today;
+        iconColor = Colors.green.shade600;
+        break;
+      case 'Cinsiyet':
+        icon = Icons.people;
+        iconColor = Colors.purple.shade600;
+        break;
+      case 'Başvuru Şikayeti':
+        icon = Icons.medical_services;
+        iconColor = Colors.orange.shade600;
+        break;
+      case 'Ameliyat':
+        icon = Icons.local_hospital;
+        iconColor = Colors.red.shade600;
+        break;
+      case 'Patoloji':
+        icon = Icons.science;
+        iconColor = Colors.deepPurple.shade600;
+        break;
+      case 'Doğum Öyküsü':
+        icon = Icons.child_care;
+        iconColor = Colors.pink.shade600;
+        break;
+      case 'Tansiyon':
+        icon = Icons.favorite;
+        iconColor = Colors.red.shade600;
+        break;
+      case 'Nabız':
+        icon = Icons.favorite_border;
+        iconColor = Colors.red.shade700;
+        break;
+      case 'Ateş':
+        icon = Icons.thermostat;
+        iconColor = Colors.deepOrange.shade600;
+        break;
+      case 'Önceki Tedavi':
+        icon = Icons.medication;
+        iconColor = Colors.teal.shade600;
+        break;
+      case 'Hasta No':
+        icon = Icons.tag;
+        iconColor = Colors.blueGrey.shade600;
+        break;
+      case 'TC Kimlik No':
+        icon = Icons.badge;
+        iconColor = Colors.indigo.shade600;
+        break;
+      case 'Durum':
+        icon = Icons.info;
+        iconColor = Colors.blue.shade600;
+        break;
+      case 'Son Ziyaret':
+        icon = Icons.event;
+        iconColor = Colors.indigo.shade600;
+        break;
+      case 'Kan Grubu':
+        icon = Icons.bloodtype;
+        iconColor = Colors.red.shade600;
+        break;
+      case 'Adres':
+        icon = Icons.home;
+        iconColor = Colors.brown.shade600;
+        break;
+      case 'Telefon':
+        icon = Icons.phone;
+        iconColor = Colors.green.shade600;
+        break;
+      default:
+        icon = Icons.info_outline;
+        iconColor = Colors.blueGrey.shade600;
+    }
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, color: iconColor, size: 24),
+          const SizedBox(width: 8),
           SizedBox(
-            width: 120,
+            width: 100,
             child: Text(
               '$label:',
               style: TextStyle(

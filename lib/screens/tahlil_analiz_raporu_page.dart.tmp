@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'tahlil_analiz_sonuclari_page.dart';
 
-// Alanların sıralı ve eksiksiz gelmesi için kullanılacak sıra listesi
+// AlanlarÄ±n sÄ±ralÄ± ve eksiksiz gelmesi iÃ§in kullanÄ±lacak sÄ±ra listesi
 final List<String> dataOrder = [
   'ad_soyad',
   'yas',
@@ -28,23 +27,23 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
   
   const TahlilAnalizRaporuPage({Key? key, required this.hastaId}) : super(key: key);
 
-  // DEBUG: HastaId'yi kolayca görebilmek için getter
+  // DEBUG: HastaId'yi kolayca gÃ¶rebilmek iÃ§in getter
   String get debugHastaId => hastaId;
 
-  // Tekil ve doğru tanımlı fonksiyon
+  // Tekil ve doÄŸru tanÄ±mlÄ± fonksiyon
   Future<Map<String, dynamic>> _fetchHastaDetay(String hastaId) async {
     try {
-      // print('Hasta detayı çekiliyor. Hasta ID: $hastaId');
+      // print('Hasta detayÄ± Ã§ekiliyor. Hasta ID: $hastaId');
       
-      // Hasta ID boşsa, test verilerini döndür
+      // Hasta ID boÅŸsa, test verilerini dÃ¶ndÃ¼r
       if (hastaId.isEmpty) {
-        // print('Hasta ID boş, test verileri döndürülüyor');
+        // print('Hasta ID boÅŸ, test verileri dÃ¶ndÃ¼rÃ¼lÃ¼yor');
         return {
           'ad_soyad': 'Test Hasta',
           'yas': 35,
           'cinsiyet': 'Erkek',
           'son_lab_tetkik': {'HGB': 12, 'WBC': 6000, 'PLT': 200000, 'Kreatinin': 1.0, 'Glukoz': 100},
-          'basvuru_sikayeti': 'Test şikayeti',
+          'basvuru_sikayeti': 'Test ÅŸikayeti',
           'ameliyat': 'Yok',
           'patoloji': 'Normal',
           'dogum_oykusu': 'Yok',
@@ -61,19 +60,19 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
       }
       
       try {
-        // Firebase'den veri çekme
+        // Firebase'den veri Ã§ekme
         final doc = await FirebaseFirestore.instance.collection('cases').doc(hastaId).get();
         
-        // Doküman var mı kontrol et
+        // DokÃ¼man var mÄ± kontrol et
         if (!doc.exists) {
-          // print('Vaka bulunamadı: $hastaId');
-          // Test verisi döndür
+          // print('Vaka bulunamadÄ±: $hastaId');
+          // Test verisi dÃ¶ndÃ¼r
           return {
             'ad_soyad': 'Test Hasta (ID: $hastaId)',
             'yas': 35,
             'cinsiyet': 'Erkek',
             'son_lab_tetkik': {'HGB': 12, 'WBC': 6000, 'PLT': 200000, 'Kreatinin': 1.0, 'Glukoz': 100},
-            'basvuru_sikayeti': 'Test şikayeti',
+            'basvuru_sikayeti': 'Test ÅŸikayeti',
             'ameliyat': 'Yok',
             'patoloji': 'Normal',
             'dogum_oykusu': 'Yok',
@@ -90,15 +89,15 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
         }
         
         final data = doc.data()!;
-        // print('Veri başarıyla çekildi: ${data.toString()}');
+        // print('Veri baÅŸarÄ±yla Ã§ekildi: ${data.toString()}');
         
-        // DEBUG: Çekilen hastaId ve veri
+        // DEBUG: Ã‡ekilen hastaId ve veri
         // ignore: avoid_print
         print('[DEBUG] Firestore hastaId: $hastaId, data: ${data.toString()}');
-        // Eksik alanları tamamla
+        // Eksik alanlarÄ± tamamla
         final Map<String, dynamic> completeData = {...data};
         
-        // Zorunlu alanları kontrol et ve eksikse ekle
+        // Zorunlu alanlarÄ± kontrol et ve eksikse ekle
         final requiredFields = [
           'ad_soyad', 'yas', 'cinsiyet', 'basvuru_sikayeti', 'ameliyat',
           'patoloji', 'dogum_oykusu', 'tansiyon', 'nabiz', 'ates',
@@ -108,7 +107,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
         
         for (final field in requiredFields) {
           if (!completeData.containsKey(field)) {
-            // print('Eksik alan tamamlanıyor: $field');
+            // print('Eksik alan tamamlanÄ±yor: $field');
             if (field == 'son_lab_tetkik') {
               completeData[field] = {'HGB': 'Veri yok', 'WBC': 'Veri yok', 'PLT': 'Veri yok'};
             } else {
@@ -119,14 +118,14 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
         
         return completeData;
       } catch (e) {
-        // print('Firebase hatası: $e');
-        // Test verisi döndür
+        // print('Firebase hatasÄ±: $e');
+        // Test verisi dÃ¶ndÃ¼r
         return {
           'ad_soyad': 'Test Hasta (Hata)',
           'yas': 35,
           'cinsiyet': 'Erkek',
           'son_lab_tetkik': {'HGB': 12, 'WBC': 6000, 'PLT': 200000, 'Kreatinin': 1.0, 'Glukoz': 100},
-          'basvuru_sikayeti': 'Test şikayeti',
+          'basvuru_sikayeti': 'Test ÅŸikayeti',
           'ameliyat': 'Yok',
           'patoloji': 'Normal',
           'dogum_oykusu': 'Yok',
@@ -143,13 +142,13 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
       }
     } catch (e) {
       // print('Genel hata: $e');
-      // Test verisi döndür
+      // Test verisi dÃ¶ndÃ¼r
       return {
         'ad_soyad': 'Test Hasta (Genel Hata)',
         'yas': 35,
         'cinsiyet': 'Erkek',
         'son_lab_tetkik': {'HGB': 12, 'WBC': 6000, 'PLT': 200000, 'Kreatinin': 1.0, 'Glukoz': 100},
-        'basvuru_sikayeti': 'Test şikayeti',
+        'basvuru_sikayeti': 'Test ÅŸikayeti',
         'ameliyat': 'Yok',
         'patoloji': 'Normal',
         'dogum_oykusu': 'Yok',
@@ -166,7 +165,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
     }
   }
 
-  // Anahtarı düzenli formata çevirme
+  // AnahtarÄ± dÃ¼zenli formata Ã§evirme
   String _formatKey(String key) {
     return key
         .replaceAll('_', ' ')
@@ -175,7 +174,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
         .join(' ');
   }
   
-  // Her alan için ikon belirle
+  // Her alan iÃ§in ikon belirle
   IconData _getIconForField(String field) {
     switch (field) {
       case 'ad_soyad': return Icons.person;
@@ -205,7 +204,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hasta Detayı'),
+        title: const Text('Hasta DetayÄ±'),
         backgroundColor: Colors.cyan,
       ),
       body: FutureBuilder<Map<String, dynamic>>(
@@ -215,13 +214,13 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           
-          // Test verileri - her durumda görüntülenecek
+          // Test verileri - her durumda gÃ¶rÃ¼ntÃ¼lenecek
           final testData = {
             'ad_soyad': 'Test Hasta',
             'yas': 35,
             'cinsiyet': 'Erkek',
             'son_lab_tetkik': {'HGB': 12, 'WBC': 6000, 'PLT': 200000, 'Kreatinin': 1.0, 'Glukoz': 100},
-            'basvuru_sikayeti': 'Test şikayeti',
+            'basvuru_sikayeti': 'Test ÅŸikayeti',
             'ameliyat': 'Yok',
             'patoloji': 'Normal',
             'dogum_oykusu': 'Yok',
@@ -242,14 +241,14 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
           // Firebase'den veri geldiyse onu kullan
           if (snapshot.hasData && snapshot.data != null) {
             data = snapshot.data!;
-            // print('Firebase verisi kullanılıyor: $data');
+            // print('Firebase verisi kullanÄ±lÄ±yor: $data');
           } else if (snapshot.hasError) {
-            // print('Hata oluştu, test verisi kullanılıyor: ${snapshot.error}');
+            // print('Hata oluÅŸtu, test verisi kullanÄ±lÄ±yor: ${snapshot.error}');
           } else {
-            // print('Veri yok, test verisi kullanılıyor');
+            // print('Veri yok, test verisi kullanÄ±lÄ±yor');
           }
           
-          // Veri sıralaması
+          // Veri sÄ±ralamasÄ±
           final dataOrder = [
             'ad_soyad',
             'yas',
@@ -272,11 +271,11 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
           
           final widgets = <Widget>[];
           
-          // Hasta adı kısmını tamamen kaldırdık, çünkü altta zaten gösteriliyor
+          // Hasta adÄ± kÄ±smÄ±nÄ± tamamen kaldÄ±rdÄ±k, Ã§Ã¼nkÃ¼ altta zaten gÃ¶steriliyor
           
-          // Sıralamaya göre verileri ekle
+          // SÄ±ralamaya gÃ¶re verileri ekle
           for (final key in dataOrder) {
-            // "onceki_tetkik" için, eğer yoksa otomatik olarak "son_lab_tetkik" gösterilsin
+            // "onceki_tetkik" iÃ§in, eÄŸer yoksa otomatik olarak "son_lab_tetkik" gÃ¶sterilsin
             if (key == 'onceki_tetkik' && data.containsKey(key)) {
               final value = data[key];
               
@@ -293,7 +292,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Önceki Laboratuvar Tetkik Sonuçları',
+                            'Son Laboratuvar Tetkik SonuÃ§larÄ±',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan),
                           ),
                           const Divider(color: Colors.cyan),
@@ -332,7 +331,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
             if (data.containsKey(key)) {
               final value = data[key];
               
-              // Lab tetkik sonuçları için özel işlem
+              // Lab tetkik sonuÃ§larÄ± iÃ§in Ã¶zel iÅŸlem
               if (key == 'son_lab_tetkik' && value is Map) {
                 widgets.add(
                   Card(
@@ -346,7 +345,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Son Laboratuvar Tetkik Sonuçları',
+                            'Son Laboratuvar Tetkik SonuÃ§larÄ±',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan),
                           ),
                           const Divider(color: Colors.cyan),
@@ -379,7 +378,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                   ),
                 );
               } else {
-                // Normal alanlar için
+                // Normal alanlar iÃ§in
                 widgets.add(
                   Card(
                     elevation: 2,
@@ -390,7 +389,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Alan adı ve ikonu
+                          // Alan adÄ± ve ikonu
                           Expanded(
                             flex: 2,
                             child: Row(
@@ -409,7 +408,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                               ],
                             ),
                           ),
-                          // Alan değeri
+                          // Alan deÄŸeri
                           Expanded(
                             flex: 3,
                             child: Text(
@@ -426,13 +425,13 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
             }
           }
           
-          // Hata varsa ekrana uyarı mesajı göster
+          // Hata varsa ekrana uyarÄ± mesajÄ± gÃ¶ster
           if (snapshot.hasError) {
             widgets.add(
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Hata oluştu: ${snapshot.error}',
+                  'Hata oluÅŸtu: ${snapshot.error}',
                   style: const TextStyle(fontSize: 16, color: Colors.red),
                 ),
               ),
@@ -444,27 +443,6 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
             children: widgets,
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Analiz sonuçlarını göster
-          final sonTetkik = {
-            'HGB': 12,
-            'WBC': 6000,
-            'PLT': 200000,
-            'Kreatinin': 1.0,
-            'Glukoz': 100
-          };
-          
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => TahlilAnalizSonuclariPage(tahlil: sonTetkik),
-            ),
-          );
-        },
-        backgroundColor: Colors.cyan,
-        child: const Icon(Icons.analytics),
       ),
     );
   }

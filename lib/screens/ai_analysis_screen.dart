@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:akilli_doktor_asistani/screens/tahlil_analiz_raporu_page.dart';
 import 'package:akilli_doktor_asistani/services/ai_analysis_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/app_theme.dart';
 
 
 final List<Map<String, dynamic>> vakalar = [
@@ -238,7 +239,7 @@ class _HastaListesiWidgetState extends State<_HastaListesiWidget> {
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 22),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          backgroundColor: Colors.cyan,
+                          backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
                           textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           elevation: 2,

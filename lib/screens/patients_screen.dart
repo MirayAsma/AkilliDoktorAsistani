@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'test_results_screen.dart';
 
+
 class PatientsScreen extends StatefulWidget {
   const PatientsScreen({super.key});
 
@@ -19,6 +20,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
     super.initState();
     _loadConfirmedPatients();
   }
+
+  // _getStatusColor fonksiyonu kullanılmadığı için kaldırıldı
 
   void _loadConfirmedPatients() {
     // Simüle edilmiş veri yükleme
@@ -82,10 +85,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Onaylanmış Hastalar'),
+        title: const Text(''),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Color(0xFF00BCD4)),
             onPressed: () {
               setState(() {
                 _isLoading = true;
@@ -105,27 +108,14 @@ class _PatientsScreenState extends State<PatientsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Tahlil Analizleri',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.cyan,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  // "Tahlil Analizleri" yazısı kaldırıldı
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: 'Hasta ismi ile ara...',
-                        prefixIcon: const Icon(Icons.search),
+                        prefixIcon: const Icon(Icons.search, color: Color(0xFF00BCD4)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onChanged: (value) {
@@ -151,36 +141,63 @@ class _PatientsScreenState extends State<PatientsScreen> {
                             separatorBuilder: (context, index) => const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final patient = _filteredPatients[index];
-                              return SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.person),
-                                  label: Text(
-                                    patient['name'] as String,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 18),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    backgroundColor: Colors.cyan[50],
-                                    foregroundColor: Colors.cyan[900],
-                                    elevation: 1,
-                                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => TestResultsScreen(
-                                          patientId: patient['id'] as int,
-                                          patientName: patient['name'] as String,
+                              // Sadece tıklanabilir olmayan bir kart ve tahlil sonuçları butonu
+                              return Row(
+                                children: [
+                                  // Geniş kısım: Hasta bilgilerini gösteren tıklanabilir olmayan kart
+                                  Expanded(
+                                    child: Card(
+                                      elevation: 1,
+                                      margin: EdgeInsets.zero,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      color: Colors.white, // Beyaz arka plan
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16), // Daha ince yapıldı
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.person, color: Color(0xFF00BCD4)), // Siyah ikon
+                                            const SizedBox(width: 16),
+                                            Text(
+                                              patient['name'] as String,
+                                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87), // Siyah yazı
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8), // Aradaki boşluk
+                                  // Tahlil sonuçları butonu
+                                  Container(
+                                    height: 46, // Daha küçük buton
+                                    width: 46, // Daha küçük buton
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        backgroundColor: const Color(0xFF00BCD4),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Icon(Icons.science_outlined, color: Colors.white),
+                                      onPressed: () {
+                                        // Tahlil sonuçları butonuna tıklandığında tahlil sonuçlarını göster
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => TestResultsScreen(
+                                              patientId: patient['id'] as int,
+                                              patientName: patient['name'] as String,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               );
                             },
                           ),

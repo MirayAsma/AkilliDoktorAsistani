@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'tahlil_analiz_sonuclari_page.dart';
 
 // Alanların sıralı ve eksiksiz gelmesi için kullanılacak sıra listesi
 final List<String> dataOrder = [
@@ -293,7 +292,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Önceki Laboratuvar Tetkik Sonuçları',
+                            'Son Laboratuvar Tetkik Sonuçları',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan),
                           ),
                           const Divider(color: Colors.cyan),
@@ -444,27 +443,6 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
             children: widgets,
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Analiz sonuçlarını göster
-          final sonTetkik = {
-            'HGB': 12,
-            'WBC': 6000,
-            'PLT': 200000,
-            'Kreatinin': 1.0,
-            'Glukoz': 100
-          };
-          
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => TahlilAnalizSonuclariPage(tahlil: sonTetkik),
-            ),
-          );
-        },
-        backgroundColor: Colors.cyan,
-        child: const Icon(Icons.analytics),
       ),
     );
   }

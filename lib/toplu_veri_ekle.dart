@@ -9,17 +9,17 @@ void tumVerileriSilVeYukle() async {
     // Her dokümanı sil
     for (var doc in snapshot.docs) {
       await doc.reference.delete();
-      print('${doc.id} silindi!');
+      // print('${doc.id} silindi!');
     }
     
-    print('Tüm veriler silindi, şimdi yeniden yükleniyor...');
+    // print('Tüm veriler silindi, şimdi yeniden yükleniyor...');
     
     // Sonra yeni verileri ekle
     topluVeriEkle();
     
-    print('İşlem tamamlandı! Tüm veriler yeniden yüklendi.');
+    // print('İşlem tamamlandı! Tüm veriler yeniden yüklendi.');
   } catch (e) {
-    print('Hata oluştu: $e');
+    // print('Hata oluştu: $e');
   }
 }
 
@@ -400,6 +400,6 @@ void topluVeriEkle() async {
         .collection('cases')
         .doc(hasta["documentId"])
         .set(hasta["data"]);
-    print('${hasta["data"]["ad_soyad"]} eklendi!');
+    // print('${hasta["data"]["ad_soyad"]} eklendi!');
   }
 }

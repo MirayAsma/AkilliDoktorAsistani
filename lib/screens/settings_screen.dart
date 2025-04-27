@@ -152,7 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           
           OutlinedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.of(context).pop();
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.primaryColor,

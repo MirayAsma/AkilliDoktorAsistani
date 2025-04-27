@@ -1,27 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'tahlil_analiz_sonuclari_page.dart';
-
-// Alanların sıralı ve eksiksiz gelmesi için kullanılacak sıra listesi
-final List<String> dataOrder = [
-  'ad_soyad',
-  'yas',
-  'cinsiyet',
-  'basvuru_sikayeti',
-  'ameliyat',
-  'patoloji',
-  'dogum_oykusu',
-  'tansiyon',
-  'nabiz',
-  'ates',
-  'onceki_tedavi',
-  'uyari',
-  'son_lab_tetkik',
-  'son_goruntuleme',
-  'onceki_basvurular',
-  'onceki_tetkik',
-  'onceki_goruntuleme',
-];
+import 'package:akilli_doktor_asistani/services/ai_analysis_service.dart';
 
 class TahlilAnalizRaporuPage extends StatelessWidget {
   final String hastaId;
@@ -60,69 +38,20 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
         };
       }
       
-      try {
-        // Firebase'den veri çekme
-        final doc = await FirebaseFirestore.instance.collection('cases').doc(hastaId).get();
-        
-        // Doküman var mı kontrol et
-        if (!doc.exists) {
-          // print('Vaka bulunamadı: $hastaId');
-          // Test verisi döndür
-          return {
-            'ad_soyad': 'Test Hasta (ID: $hastaId)',
-            'yas': 35,
-            'cinsiyet': 'Erkek',
-            'son_lab_tetkik': {'HGB': 12, 'WBC': 6000, 'PLT': 200000, 'Kreatinin': 1.0, 'Glukoz': 100},
-            'basvuru_sikayeti': 'Test şikayeti',
-            'ameliyat': 'Yok',
-            'patoloji': 'Normal',
-            'dogum_oykusu': 'Yok',
-            'tansiyon': '120/80 mmHg',
-            'nabiz': '72',
-            'ates': '36.5',
-            'onceki_tedavi': 'Yok',
-            'uyari': 'Yok',
-            'son_goruntuleme': 'Yok',
-            'onceki_basvurular': 'Yok',
-            'onceki_tetkik': 'Yok',
-            'onceki_goruntuleme': 'Yok'
-          };
-        }
-        
-        final data = doc.data()!;
-        // print('Veri başarıyla çekildi: ${data.toString()}');
-        
-        // DEBUG: Çekilen hastaId ve veri
-        // ignore: avoid_print
-        print('[DEBUG] Firestore hastaId: $hastaId, data: ${data.toString()}');
-        // Eksik alanları tamamla
-        final Map<String, dynamic> completeData = {...data};
-        
-        // Zorunlu alanları kontrol et ve eksikse ekle
-        final requiredFields = [
-          'ad_soyad', 'yas', 'cinsiyet', 'basvuru_sikayeti', 'ameliyat',
-          'patoloji', 'dogum_oykusu', 'tansiyon', 'nabiz', 'ates',
-          'onceki_tedavi', 'uyari', 'son_lab_tetkik', 'son_goruntuleme',
-          'onceki_basvurular', 'onceki_tetkik', 'onceki_goruntuleme'
-        ];
-        
-        for (final field in requiredFields) {
-          if (!completeData.containsKey(field)) {
-            // print('Eksik alan tamamlanıyor: $field');
-            if (field == 'son_lab_tetkik') {
-              completeData[field] = {'HGB': 'Veri yok', 'WBC': 'Veri yok', 'PLT': 'Veri yok'};
-            } else {
-              completeData[field] = 'Veri yok';
-            }
-          }
-        }
-        
-        return completeData;
-      } catch (e) {
-        // print('Firebase hatası: $e');
-        // Test verisi döndür
+      // Firebase'den hasta verilerini çek
+      final db = FirebaseFirestore.instance;
+      final docRef = db.collection('cases').doc(hastaId);
+      final docSnap = await docRef.get();
+      
+      if (docSnap.exists) {
+        final data = docSnap.data() as Map<String, dynamic>;
+        // print('Hasta verileri başarıyla çekildi: $data');
+        return data;
+      } else {
+        // print('Hasta bulunamadı. ID: $hastaId');
+        // Hasta bulunamadıysa test verilerini döndür
         return {
-          'ad_soyad': 'Test Hasta (Hata)',
+          'ad_soyad': 'Test Hasta (Bulunamadı)',
           'yas': 35,
           'cinsiyet': 'Erkek',
           'son_lab_tetkik': {'HGB': 12, 'WBC': 6000, 'PLT': 200000, 'Kreatinin': 1.0, 'Glukoz': 100},
@@ -142,7 +71,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
         };
       }
     } catch (e) {
-      // print('Genel hata: $e');
+      // print('Hasta detayı çekilirken hata: $e');
       // Test verisi döndür
       return {
         'ad_soyad': 'Test Hasta (Genel Hata)',
@@ -166,7 +95,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
     }
   }
 
-  // Anahtarı düzenli formata çevirme
+  // Anahtarı düzgün formatlama
   String _formatKey(String key) {
     return key
         .replaceAll('_', ' ')
@@ -174,8 +103,8 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
         .map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '')
         .join(' ');
   }
-  
-  // Her alan için ikon belirle
+
+  // Alana göre ikon belirleme
   IconData _getIconForField(String field) {
     switch (field) {
       case 'ad_soyad': return Icons.person;
@@ -198,8 +127,6 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
       default: return Icons.info;
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -236,48 +163,22 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
             'onceki_goruntuleme': 'Yok'
           };
           
-          // Firebase'den veri gelmediyse test verilerini kullan
-          Map<String, dynamic> data = testData;
+          final data = snapshot.data ?? testData;
           
-          // Firebase'den veri geldiyse onu kullan
-          if (snapshot.hasData && snapshot.data != null) {
-            data = snapshot.data!;
-            // print('Firebase verisi kullanılıyor: $data');
-          } else if (snapshot.hasError) {
-            // print('Hata oluştu, test verisi kullanılıyor: ${snapshot.error}');
-          } else {
-            // print('Veri yok, test verisi kullanılıyor');
-          }
-          
-          // Veri sıralaması
-          final dataOrder = [
-            'ad_soyad',
-            'yas',
-            'cinsiyet',
-            'basvuru_sikayeti',
-            'ameliyat',
-            'patoloji',
-            'dogum_oykusu',
-            'tansiyon',
-            'nabiz',
-            'ates',
-            'onceki_tedavi',
-            'uyari',
-            'son_lab_tetkik',
-            'son_goruntuleme',
-            'onceki_basvurular',
-            'onceki_tetkik',
-            'onceki_goruntuleme'
+          // Görüntülenecek alanlar
+          final displayFields = [
+            'ad_soyad', 'yas', 'cinsiyet', 'basvuru_sikayeti', 'ameliyat', 'patoloji',
+            'dogum_oykusu', 'tansiyon', 'nabiz', 'ates', 'onceki_tedavi', 'uyari',
+            'son_goruntuleme', 'onceki_basvurular', 'onceki_tetkik', 'onceki_goruntuleme'
           ];
           
+          // Widget listesi
           final widgets = <Widget>[];
           
-          // Hasta adı kısmını tamamen kaldırdık, çünkü altta zaten gösteriliyor
-          
-          // Sıralamaya göre verileri ekle
-          for (final key in dataOrder) {
-            // "onceki_tetkik" için, eğer yoksa otomatik olarak "son_lab_tetkik" gösterilsin
-            if (key == 'onceki_tetkik' && data.containsKey(key)) {
+          // Özel alanları işle
+          for (final key in displayFields) {
+            // Özel alanlar için özel işlem
+            if (key == 'onceki_tetkik') {
               final value = data[key];
               
               if (value is Map && value.isNotEmpty) {
@@ -293,7 +194,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Önceki Laboratuvar Tetkik Sonuçları',
+                            'Son Laboratuvar Tetkik Sonuçları',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan),
                           ),
                           const Divider(color: Colors.cyan),
@@ -346,7 +247,7 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Son Laboratuvar Tetkik Sonuçları',
+                            'Önceki Laboratuvar Tetkik Sonuçları',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan),
                           ),
                           const Divider(color: Colors.cyan),
@@ -363,8 +264,9 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                                   ),
                                 ),
+                                const SizedBox(width: 16),
                                 Expanded(
-                                  flex: 2,
+                                  flex: 3,
                                   child: Text(
                                     '${e.value}',
                                     style: const TextStyle(fontSize: 16),
@@ -378,69 +280,31 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
                     ),
                   ),
                 );
-              } else {
-                // Normal alanlar için
-                widgets.add(
-                  Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Alan adı ve ikonu
-                          Expanded(
-                            flex: 2,
-                            child: Row(
-                              children: [
-                                Icon(_getIconForField(key), color: Colors.cyan, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _formatKey(key),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold, 
-                                      fontSize: key.contains('goruntuleme') ? 14 : 16
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Alan değeri
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              key == 'onceki_tetkik' && (value is Map && value.isEmpty) ? 'yok' : (value?.toString() ?? 'Veri yok'),
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ),
-                        ],
-                      ),
+                continue;
+              }
+              
+              // Diğer alanlar için standart görünüm
+              widgets.add(
+                Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: ListTile(
+                    leading: Icon(_getIconForField(key), color: Colors.cyan),
+                    title: Text(_formatKey(key)),
+                    subtitle: Text(
+                      value.toString(),
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
-                );
-              }
+                ),
+              );
             }
           }
           
-          // Hata varsa ekrana uyarı mesajı göster
-          if (snapshot.hasError) {
-            widgets.add(
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Hata oluştu: ${snapshot.error}',
-                  style: const TextStyle(fontSize: 16, color: Colors.red),
-                ),
-              ),
-            );
-          }
-          
+          // Tüm widget'ları bir ListView içinde göster
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             children: widgets,
           );
         },

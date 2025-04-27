@@ -18,13 +18,59 @@ class HastaDetayDialog extends StatelessWidget {
   String _str(dynamic val) => val == null ? 'Yok' : val.toString();
 
   Widget _buildInfoRow(String label, String value, IconData? icon) {
+    // Her etiket için anlamlı renk belirleme
+    Color iconColor;
+    switch(label) {
+      case 'Ad Soyad':
+        iconColor = Colors.blue;
+        break;
+      case 'Yaş':
+        iconColor = Colors.green;
+        break;
+      case 'Cinsiyet':
+        iconColor = Colors.purple;
+        break;
+      case 'Başvuru Şikayeti':
+        iconColor = Colors.orange;
+        break;
+      case 'Önceki Görüntüleme':
+        iconColor = Colors.indigo;
+        break;
+      case 'Ameliyat':
+        iconColor = Colors.red;
+        break;
+      case 'Patoloji Sonucu':
+        iconColor = Colors.deepPurple;
+        break;
+      case 'Doğum Öyküsü':
+        iconColor = Colors.pink;
+        break;
+      case 'Tansiyon':
+        iconColor = Colors.red;
+        break;
+      case 'Nabız':
+        iconColor = Colors.red.shade700;
+        break;
+      case 'Ateş':
+        iconColor = Colors.deepOrange;
+        break;
+      case 'Önceki Tedavi':
+        iconColor = Colors.teal;
+        break;
+      case 'Uyarı':
+        iconColor = Colors.amber;
+        break;
+      default:
+        iconColor = Colors.blueGrey;
+    }
+    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 20, color: Colors.cyan),
+            Icon(icon, size: 20, color: iconColor),
             const SizedBox(width: 6),
           ],
           Expanded(
@@ -197,8 +243,10 @@ class HastaDetayDialog extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Önceki Tetkik Sonuçları', 
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.amber)),
+                      Text(
+                        'Önceki Laboratuvar Tetkik Sonuçları',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.amber),
+                      ),
                       const Divider(color: Colors.amber),
                       const SizedBox(height: 12),
                       _buildOncekiTetkik(oncekiTetkik),
@@ -220,8 +268,10 @@ class HastaDetayDialog extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Son Laboratuvar Tetkik Sonuçları', 
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan)),
+                      Text(
+                        'Son Laboratuvar Tetkik Sonuçları',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan),
+                      ),
                       const Divider(color: Colors.cyan),
                       const SizedBox(height: 12),
                       _buildTetkikList(sonTetkik),

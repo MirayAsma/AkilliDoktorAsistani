@@ -3,10 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Ana renkler (mevcut cyan tonunu koruyoruz)
-  static const Color primaryColor = Color(0xFF00BCD4); // Cyan
-  static const Color primaryDarkColor = Color(0xFF0097A7);
-  static const Color primaryLightColor = Color(0xFFB2EBF2);
-  static const Color accentColor = Color(0xFF009688); // Teal
+  static const Color primaryColor = Color(0xFF00BCD4); // Cyan (eski renk)
+  static const Color primaryDarkColor = Color(0xFF0097A7); // Cyan dark
+  static const Color primaryLightColor = Color(0xFFB2EBF2); // Cyan light (bir ton açık)
+  static const Color accentColor = Color(0xFF009688); // Teal (eski renk)
   
   // Nötr renkler
   static const Color textColor = Color(0xFF212121);
@@ -98,7 +98,7 @@ class AppTheme {
       iconTheme: const IconThemeData(color: Colors.white),
     ),
     cardTheme: CardTheme(
-      color: cardColor,
+      color: Colors.white,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
