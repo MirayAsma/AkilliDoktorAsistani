@@ -5,14 +5,25 @@ import 'package:akilli_doktor_asistani/screens/home_screen.dart';
 import 'package:akilli_doktor_asistani/services/auth_service.dart';
 import 'package:akilli_doktor_asistani/theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  
-  // Veriler başarıyla yüklendi, artık bu satıra gerek yok
-  
+  await _initializeFirebase();
   runApp(const MyApp());
+}
+
+Future<void> _initializeFirebase() async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } catch (e) {
+    print('Firebase zaten başlatıldı veya hata oluştu: '
+        '[33m$e[0m');
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -20,15 +31,31 @@ class MyApp extends StatelessWidget {
   
   // Kullanıcı oturumunu kontrol edip bilgilerini getiren fonksiyon
   Future<Map<String, dynamic>?> _checkUserAndGetData() async {
-    final authService = AuthService();
-    final isLoggedIn = await authService.isLoggedIn();
-    
-    if (isLoggedIn) {
-      // Kullanıcı giriş yapmışsa bilgilerini getir
-      final userData = await authService.getCurrentUser();
-      return userData;
-    } else {
-      // Kullanıcı giriş yapmamışsa null döndür
+    try {
+      final authService = AuthService();
+      final isLoggedIn = await authService.isLoggedIn();
+      
+      if (isLoggedIn) {
+        // Kullanıcı giriş yapmışsa bilgilerini getir
+        final userData = await authService.getCurrentUser();
+        
+        // Kullanıcı verileri geçerli mi kontrol et
+        if (userData != null && userData.containsKey('id') && userData.containsKey('name')) {
+          // Kullanıcı oturumu aktif
+          return userData;
+        } else {
+          // Kullanıcı verileri eksik veya geçersiz
+          // Oturumu temizle ve giriş ekranına yönlendir
+          await authService.logout();
+          return null;
+        }
+      } else {
+        // Aktif kullanıcı oturumu bulunamadı
+        // Kullanıcı giriş yapmamışsa null döndür
+        return null;
+      }
+    } catch (e) {
+      // Hata durumunda sessizce null döndür
       return null;
     }
   }

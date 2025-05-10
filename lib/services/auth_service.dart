@@ -36,8 +36,20 @@ class AuthService {
 
   // Check if user is logged in
   Future<bool> isLoggedIn() async {
-    final userData = await _secureStorage.read(key: _userKey);
-    return userData != null;
+    try {
+      final userData = await _secureStorage.read(key: _userKey);
+      if (userData != null && userData.isNotEmpty) {
+        // Kullanıcı verilerini JSON olarak parse etmeyi dene
+        final userMap = jsonDecode(userData);
+        // Geçerli bir kullanıcı verisi olduğunu kontrol et
+        return userMap != null && userMap.containsKey('id');
+      }
+      return false;
+    } catch (e) {
+      // Hata durumunda false döndür
+      // Oturum kontrolü sırasında hata
+      return false;
+    }
   }
 
   // Login with ID and password

@@ -447,13 +447,40 @@ class TahlilAnalizRaporuPage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Analiz sonuçlarını göster
+          // Kapsamlı test veri seti - tüm değerleri içeriyor
+          // Bazıları normal, bazıları sınırda, bazıları anormal
           final sonTetkik = {
-            'HGB': 12,
-            'WBC': 6000,
-            'PLT': 200000,
-            'Kreatinin': 1.0,
-            'Glukoz': 100
+            // Normal değerler
+            'HGB': 14.2,                       // Normal (12-16)
+            'WBC': 7500,                       // Normal (4000-10000)
+            'PLT': 250000,                     // Normal (150000-450000)
+            'Kreatinin': 0.9,                  // Normal (0.6-1.2)
+            'Glukoz': 95,                      // Normal (70-110)
+            'Ferritin': 150,                   // Normal (15-200)
+            'Demir': 80,                       // Normal (60-160)
+            
+            // Sınırda değerler
+            'MCV': 78,                         // Sınırda düşük (80-100)
+            'Kalsiyum': 8.3,                   // Sınırda düşük (8.5-10.5)
+            'Potasyum': 5.2,                   // Sınırda yüksek (3.5-5.1)
+            'Folat': 2.8,                      // Sınırda düşük (3-17)
+            'APTT': 36,                        // Sınırda yüksek (25-35)
+            
+            // Anormal değerler
+            'ALT': 65,                         // Yüksek (0-40)
+            'AST': 70,                         // Yüksek (0-40)
+            'GGT': 75,                         // Yüksek (9-48)
+            'Amilaz': 120,                     // Yüksek (28-100)
+            'Lipaz': 100,                      // Yüksek (8-78)
+            'Üre': 60,                         // Yüksek (10-50)
+            'Direkt bilirubin': 0.5,           // Yüksek (0-0.3)
+            'İndirekt bilirubin': 1.2,        // Yüksek (0.2-0.8)
+            'Sodyum': 130,                     // Düşük (135-145)
+            'Demir bağlama kapasitesi': 450,  // Yüksek (250-400)
+            'B12 vitamini': 180,               // Düşük (200-900)
+            'Vitamin D3': 15,                  // Düşük (20-50)
+            'INR': 1.5,                        // Yüksek (0.8-1.2)
+            'Tam idrar tetkiki': 'Lökosit (+), Eritrosit (+), Protein (+)'  // Anormal
           };
           
           Navigator.push(

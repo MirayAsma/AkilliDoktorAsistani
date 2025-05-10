@@ -34,15 +34,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
+    // Async işlem öncesi context kontrolü
+    if (!mounted) return;
+    
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('darkMode', _isDarkMode);
     await prefs.setBool('notifications', _notificationsEnabled);
     await prefs.setBool('biometrics', _biometricsEnabled);
     await prefs.setString('language', _selectedLanguage);
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ayarlar kaydedildi')),
-    );
+    // Async işlem sonrası mounted kontrolü ve UI güncelleme
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ayarlar kaydedildi')),
+      );
+    }
   }
 
   @override
@@ -103,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  const Row(
                     children: [
                       const Icon(Icons.language, color: Colors.cyan),
                       const SizedBox(width: 8),

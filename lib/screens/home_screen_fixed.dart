@@ -472,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(51),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

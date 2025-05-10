@@ -85,10 +85,16 @@ class _PatientsScreenState extends State<PatientsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(''),
+        title: const Text('Hastalar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF00BCD4),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF00BCD4)),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
               setState(() {
                 _isLoading = true;
@@ -102,108 +108,239 @@ class _PatientsScreenState extends State<PatientsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
+          ? Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // "Tahlil Analizleri" yazısı kaldırıldı
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Hasta ismi ile ara...',
-                        prefixIcon: const Icon(Icons.search, color: Color(0xFF00BCD4)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  const CircularProgressIndicator(color: Color(0xFF00BCD4)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Hastalar yükleniyor...',
+                    style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                // Arama kutusu
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1A9E9E9E),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _filteredPatients = _confirmedPatients.where((patient) =>
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Hasta ismi ile ara...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400),
+                      prefixIcon: const Icon(Icons.search, color: Color(0xFF00BCD4)),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.grey),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _filteredPatients = List.from(_confirmedPatients);
+                                });
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _filteredPatients = _confirmedPatients.where((patient) =>
                             (patient['name'] as String).toLowerCase().contains(value.toLowerCase())
                           ).toList();
                         });
                       },
                     ),
                   ),
-                  Expanded(
-                    child: _filteredPatients.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Aramanıza uygun hasta bulunamadı',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                            itemCount: _filteredPatients.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              final patient = _filteredPatients[index];
-                              // Sadece tıklanabilir olmayan bir kart ve tahlil sonuçları butonu
-                              return Row(
-                                children: [
-                                  // Geniş kısım: Hasta bilgilerini gösteren tıklanabilir olmayan kart
-                                  Expanded(
-                                    child: Card(
-                                      elevation: 1,
-                                      margin: EdgeInsets.zero,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      color: Colors.white, // Beyaz arka plan
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16), // Daha ince yapıldı
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.person, color: Color(0xFF00BCD4)), // Siyah ikon
-                                            const SizedBox(width: 16),
-                                            Text(
-                                              patient['name'] as String,
-                                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87), // Siyah yazı
-                                            ),
-                                          ],
+                // Hasta listesi
+                Expanded(
+                  child: _filteredPatients.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Hasta bulunamadı',
+                                style: TextStyle(fontSize: 16, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Lütfen farklı bir arama terimi deneyin',
+                                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                          itemCount: _filteredPatients.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final patient = _filteredPatients[index];
+                            final String patientName = patient['name'] as String;
+                            final String patientAge = patient['age'] as String;
+                            final String patientGender = patient['gender'] as String;
+                            final String department = patient['department'] as String;
+                            
+                            // Hasta adının ilk harfini al (avatar için)
+                            final String initial = patientName.isNotEmpty ? patientName[0].toUpperCase() : '?';
+                            
+                            // Departmana göre ikon seç
+                            IconData departmentIcon = Icons.medical_services;
+                            Color departmentColor = const Color(0xFF00BCD4);
+                            
+                            if (department.toLowerCase().contains('kardiyoloji')) {
+                              departmentIcon = Icons.favorite;
+                              departmentColor = Colors.redAccent;
+                            } else if (department.toLowerCase().contains('göz')) {
+                              departmentIcon = Icons.visibility;
+                              departmentColor = Colors.blueAccent;
+                            } else if (department.toLowerCase().contains('nöroloji')) {
+                              departmentIcon = Icons.psychology;
+                              departmentColor = Colors.purpleAccent;
+                            } else if (department.toLowerCase().contains('dahiliye')) {
+                              departmentIcon = Icons.health_and_safety;
+                              departmentColor = Colors.teal;
+                            }
+                            
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: const [BoxShadow(color: Color(0x1A9E9E9E), blurRadius: 8, offset: Offset(0, 3))],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () {
+                                    // Hasta kartına tıklandığında tahlil sonuçlarını göster
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => TestResultsScreen(
+                                          patientId: patient['id'] as int,
+                                          patientName: patientName,
                                         ),
                                       ),
+                                    );
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [Colors.white, Color(0xFFFAFAFA)],
+                                      ),
+                                      border: Border.all(color: const Color(0xFFEEEEEE), width: 1),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8), // Aradaki boşluk
-                                  // Tahlil sonuçları butonu
-                                  Container(
-                                    height: 46, // Daha küçük buton
-                                    width: 46, // Daha küçük buton
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        backgroundColor: const Color(0xFF00BCD4),
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      child: const Icon(Icons.science_outlined, color: Colors.white),
-                                      onPressed: () {
-                                        // Tahlil sonuçları butonuna tıklandığında tahlil sonuçlarını göster
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => TestResultsScreen(
-                                              patientId: patient['id'] as int,
-                                              patientName: patient['name'] as String,
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        // Avatar
+                                        Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [Color(0xFF00BCD4), Color(0xFF0097A7)],
+                                            ),
+                                            boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 4, offset: Offset(0, 2))],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              initial,
+                                              style: const TextStyle(
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
-                                        );
-                                      },
+                                        ),
+                                        const SizedBox(width: 16),
+                                        // Hasta bilgileri
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                patientName,
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF2C3E50),
+                                                  letterSpacing: 0.3,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Icon(patientGender.toLowerCase().contains('erkek') ? Icons.male : Icons.female, 
+                                                       color: const Color(0xFF757575), size: 14),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '$patientAge yaş',
+                                                    style: const TextStyle(color: Color(0xFF757575), fontSize: 14),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Icon(departmentIcon, color: departmentColor, size: 14),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      department,
+                                                      style: TextStyle(color: departmentColor, fontSize: 14, fontWeight: FontWeight.w500),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Tahlil sonuçları butonu
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Color(0x1A00BCD4),
+                                          ),
+                                          child: const Icon(
+                                            Icons.science_outlined,
+                                            color: Color(0xFF00BCD4),
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
     );
   }

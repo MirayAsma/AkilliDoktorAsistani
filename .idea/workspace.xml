@@ -10,20 +10,27 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1e26b1d0-53c6-43af-80e1-0025d40ebec1" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.dart_tool/dartpad/web_plugin_registrant.dart" beforeDir="false" afterPath="$PROJECT_DIR$/.dart_tool/dartpad/web_plugin_registrant.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.dart_tool/package_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/.dart_tool/package_config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.dart_tool/package_config_subset" beforeDir="false" afterPath="$PROJECT_DIR$/.dart_tool/package_config_subset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.flutter-plugins" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/app/src/main/res/values/colors.xml" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/values/colors.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/ai_analysis_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/ai_analysis_screen.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/hasta_detay_dialog.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/hasta_detay_dialog.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/patient_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/patient_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home_screen_fixed.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home_screen_fixed.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/patients_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/patients_screen.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/settings_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/settings_screen.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/tahlil_analiz_raporu_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/tahlil_analiz_raporu_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/test_results_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/test_results_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/theme/app_theme.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/theme/app_theme.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/toplu_veri_ekle.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/toplu_veri_ekle.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/tahlil_analiz_sonuclari_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/tahlil_analiz_sonuclari_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/services/ai_analysis_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/ai_analysis_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/services/auth_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/auth_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

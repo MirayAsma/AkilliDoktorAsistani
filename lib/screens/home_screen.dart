@@ -85,7 +85,11 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0:
         return _buildHomeTab();
       case 1:
-        return const PatientsScreen();
+        // Hastalar ekranında ikinci başlık görünmemesi için doğrudan PatientsScreen'i döndür
+        return const Scaffold(
+          body: PatientsScreen(),
+          appBar: null, // AppBar'i kaldır, PatientsScreen kendi AppBar'ını kullanacak
+        );
       case 2:
         return _buildAppointmentsTab();
       case 3:
@@ -250,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             spreadRadius: 1,
             blurRadius: 3,
             offset: const Offset(0, 1),
@@ -423,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withAlpha(13),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -577,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(13),
                   spreadRadius: 1,
                   blurRadius: 10,
                   offset: const Offset(0, 2),

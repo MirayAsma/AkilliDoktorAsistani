@@ -3,19 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:akilli_doktor_asistani/screens/tahlil_analiz_raporu_page.dart';
 import '../services/openai_analysis_service.dart';
 import '../services/api_key_service.dart';
+import '../services/api_service_helper.dart';
 import '../services/patient_notification_service.dart';
 import '../widgets/api_key_dialog.dart';
 import '../widgets/heart_page_transition.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/notification_icon_button.dart';
 import '../widgets/test_bildirim_butonu.dart';
-
-// Ekran import'ları
-import 'home_screen.dart';
-import 'patients_screen.dart';
-import 'settings_screen.dart';
-import 'help_screen.dart';
-import 'login_screen.dart';
 
 // API anahtarı artık güvenli bir şekilde saklanıyor
 // Kullanıcı ilk kullanımda API anahtarını girecek
@@ -56,117 +50,12 @@ final List<Map<String, dynamic>> vakalar = [
 class AIAnalysisScreen extends StatelessWidget {
   const AIAnalysisScreen({super.key});
 
-  // Ana ekrandaki ile aynı Drawer fonksiyonu
-  Widget _buildDrawer(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            accountName: Text('Dr. İdris Baydar'), // Gerekirse dinamik yapabilirsin
-            accountEmail: Text('Dahiliye'),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: Colors.cyan),
-            ),
-            decoration: BoxDecoration(color: Color(0xFF00BCD4)),
-          ),
-          ListTile(
-            leading: Icon(Icons.home),
-            title: Text('Ana Sayfa'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const HomeScreen(user: {'name': 'Dr. İdris Baydar', 'department': 'Dahiliye'})),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.people),
-            title: Text('Hastalar'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const PatientsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.calendar_today),
-            title: Text('Randevular'),
-            onTap: () {
-              Navigator.pop(context);
-              // Randevular ekranı için HomeScreen'e yönlendir ve Randevular tab'ini seç
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => HomeScreen(
-                    user: {'name': 'Dr. İdris Baydar', 'department': 'Dahiliye'},
-                  ),
-                ),
-              ).then((_) {
-                // Not: Bu ideal bir çözüm değil, ama HomeScreen'e gittikten sonra 
-                // randevular tab'ine geçiş için kullanıcı manuel olarak tıklayabilir
-              });
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.favorite, color: Colors.red),
-            title: Text('AI Asistan'),
-            onTap: () {
-              Navigator.pop(context); // Zaten AI Asistan ekranındayız, sadece drawer'i kapat
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.settings),
-            title: Text('Ayarlar'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.help),
-            title: Text('Yardım'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const HelpScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.exit_to_app),
-            title: Text('Çıkış Yap'),
-            onTap: () {
-              Navigator.pop(context);
-              // Çıkış işlemi
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false, // Tüm stack'i temizle
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F5F5),
-        drawer: _buildDrawer(context),
-
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(110),
           child: Container(
@@ -179,14 +68,12 @@ class AIAnalysisScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Builder(
-                        builder: (context) => IconButton(
-                          icon: const Icon(Icons.menu, color: Colors.white),
-                          onPressed: () {
-                            Scaffold.of(context).openDrawer();
-                          },
-                        ),
+                      // Sol köşede boş alan bırakıyoruz
+                      IconButton(
+                        icon: const Icon(Icons.menu, color: Colors.white),
+                        onPressed: () {},
                       ),
+                      // Orta kısım
                       Expanded(
                         child: Center(
                           child: Text(
@@ -288,7 +175,7 @@ class _HastaListesiWidgetState extends State<_HastaListesiWidget> {
     });
   
     // Bildirim servisini başlat
-    _notificationService.init();
+    _notificationService.initialize();
     
     // Hoş geldin bildirimi göster
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -521,8 +408,12 @@ class _HastaListesiWidgetState extends State<_HastaListesiWidget> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () {
-                    // Hasta detaylarına git
-                    _analyzePatient(vaka);
+                    Navigator.push(
+                      context,
+                      HeartPageTransition(
+                        page: TahlilAnalizRaporuPage(hastaId: vaka['id'] ?? ''),
+                      ),
+                    );
                   },
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 0),

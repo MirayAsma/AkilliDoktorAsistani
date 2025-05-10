@@ -1,0 +1,632 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:akilli_doktor_asistani/screens/tahlil_analiz_raporu_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+// import '../theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/gemini_api_service.dart';
+import '../widgets/gemini_api_key_dialog.dart';
+
+final List<Map<String, dynamic>> vakalar = [
+  {
+    'ad_soyad': 'Elif Demir',
+    'yas': 25,
+    'son_lab_tetkik': {'HGB': 10, 'WBC': 5500, 'PLT': 180000, 'Kreatinin': 0.8, 'Glukoz': 90},
+    'basvuru_sikayeti': 'Baş ağrısı',
+  },
+  {
+    'ad_soyad': 'Ahmet Yılmaz',
+    'yas': 40,
+    'son_lab_tetkik': {'HGB': 13, 'WBC': 7000, 'PLT': 220000, 'Kreatinin': 1.1, 'Glukoz': 105},
+    'basvuru_sikayeti': 'Karın ağrısı',
+  },
+  {
+    'ad_soyad': 'Zeynep Kaya',
+    'yas': 32,
+    'son_lab_tetkik': {'HGB': 11, 'WBC': 4300, 'PLT': 150000, 'Kreatinin': 0.9, 'Glukoz': 98},
+    'basvuru_sikayeti': 'Yorgunluk',
+  },
+  {
+    'ad_soyad': 'Mehmet Can',
+    'yas': 55,
+    'son_lab_tetkik': {'HGB': 15, 'WBC': 12000, 'PLT': 450000, 'Kreatinin': 1.5, 'Glukoz': 180},
+    'basvuru_sikayeti': 'Nefes darlığı',
+  },
+  {
+    'ad_soyad': 'Ayşe Polat',
+    'yas': 60,
+    'son_lab_tetkik': {'HGB': 9, 'WBC': 3900, 'PLT': 95000, 'Kreatinin': 2.2, 'Glukoz': 210},
+    'basvuru_sikayeti': 'Çarpıntı',
+  },
+];
+
+class AIAnalysisScreen extends StatelessWidget {
+  const AIAnalysisScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('AI ASİSTAN', style: TextStyle(letterSpacing: 1.5)),
+          backgroundColor: Colors.cyan,
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.people), text: "Hasta Listesi"),
+              Tab(icon: Icon(Icons.chat), text: "AI Doktor Asistanı"),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            const _HastaListesiWidget(),
+            _ChatbotWidget(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HastaListesiWidget extends StatefulWidget {
+  const _HastaListesiWidget({Key? key}) : super(key: key);
+
+  @override
+  State<_HastaListesiWidget> createState() => _HastaListesiWidgetState();
+}
+
+class _HastaListesiWidgetState extends State<_HastaListesiWidget> {
+  List<Map<String, dynamic>> _vakalar = [];
+  List<Map<String, dynamic>> _filteredVakalar = [];
+  final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVakalar();
+  }
+
+  Future<void> _fetchVakalar() async {
+    try {
+      // Firebaseden verileri çek
+      final snapshot = await FirebaseFirestore.instance.collection('cases').get();
+      
+      // Doküman yoksa, örnek verilerle devam et
+      if (snapshot.docs.isEmpty) {
+        setState(() {
+          _vakalar = vakalar; // Sabit tanımlı örnek veriler
+          _filteredVakalar = List<Map<String, dynamic>>.from(vakalar);
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      // Dokümanları işle
+      final patients = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {...data, 'id': doc.id};
+      }).toList();
+      
+      final seenNames = <String>{};
+      final uniquePatients = <Map<String, dynamic>>[];
+      
+      for (final patient in patients) {
+        final name = patient['ad_soyad']?.toString() ?? '';
+        
+        if (name.isNotEmpty && !seenNames.contains(name)) {
+          seenNames.add(name);
+          uniquePatients.add(patient);
+        }
+      }
+      
+      setState(() {
+        _vakalar = uniquePatients.isEmpty ? vakalar : uniquePatients;
+        _filteredVakalar = List<Map<String, dynamic>>.from(_vakalar);
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Veri çekme hatası: $e');
+      }
+      setState(() {
+        _errorMessage = 'Hasta verileri yüklenirken bir hata oluştu: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterVakalar(String value) {
+    setState(() {
+      _filteredVakalar = _vakalar.where((vaka) {
+        final adSoyad = (vaka['ad_soyad'] ?? '').toLowerCase();
+        return adSoyad.contains(value.toLowerCase());
+      }).toList();
+    });
+  }
+
+  // Analiz işlemini başlat ve sonra navigasyon yap
+  void _startAnalysis(Map<String, dynamic> vaka) {
+    // Önce dialog'u göster
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    // Sonra analiz işlemini yap
+    _runAnalysis(vaka);
+  }
+  
+  // Analiz işlemini gerçekleştir
+  Future<void> _runAnalysis(Map<String, dynamic> vaka) async {
+    try {
+      if (kDebugMode) {
+        print('Analiz başlatılıyor. Vaka bilgileri: ${vaka.toString()}');
+        print('Hasta ID: ${vaka['id'] ?? "ID bulunamadı"}');
+      }
+      
+      // Tahlil verilerini al - bu veriler TahlilAnalizSonuclariPage'de kullanılacak
+      // Burada herhangi bir API isteği yapmıyoruz, analiz işlemi TahlilAnalizSonuclariPage'de gerçekleşecek
+      // Bu sayede kullanıcı hemen rapor sayfasına yönlendirilecek
+      
+      // Analiz başarılı olduysa
+      if (mounted) {
+        // Önce dialog'u kapat
+        Navigator.of(context).pop();
+        
+        // Sonra rapor sayfasına git
+        final hastaId = vaka['id'] ?? '';
+        if (kDebugMode) {
+          print('Rapor sayfasına yönlendiriliyor. Hasta ID: $hastaId');
+        }
+        _navigateToReport(hastaId);
+      }
+    } catch (e) {
+      // Hata durumunda
+      if (kDebugMode) {
+        print('Analiz hatası: $e');
+      }
+      
+      if (mounted) {
+        // Dialog'u kapat
+        Navigator.of(context).pop();
+        
+        // Hata mesajı göster
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Analiz sırasında bir hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  // Rapor sayfasına git
+  void _navigateToReport(String hastaId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TahlilAnalizRaporuPage(
+          hastaId: hastaId,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00ACC1)),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Hasta verileri yükleniyor...',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.red, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _errorMessage = null;
+                });
+                _fetchVakalar();
+              },
+              child: const Text('Tekrar Dene'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(color: Color(0x0F000000), blurRadius: 3, offset: Offset(0, 1)),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Hasta ara...',
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              onChanged: _filterVakalar,
+            ),
+          ),
+        ),
+        Expanded(
+          child: _filteredVakalar.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.search_off, size: 48, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Aramanıza uygun hasta bulunamadı',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _filteredVakalar.length,
+                  itemBuilder: (context, index) {
+                    final vaka = _filteredVakalar[index];
+                    final adSoyad = vaka['ad_soyad'] ?? '';
+                    final yas = vaka['yas'] ?? 0;
+                    final basvuruSikayeti = vaka['basvuru_sikayeti'] ?? '';
+                    
+                    // Şikayet tipine göre ikon ve renk belirleme
+                    IconData sikayetIcon = Icons.medical_services;
+                    Color cardColor = const Color(0xFF4FC3F7); // Default renk
+                    
+                    if (basvuruSikayeti.toLowerCase().contains('ağrı')) {
+                      sikayetIcon = Icons.healing;
+                      cardColor = const Color(0xFF5C6BC0); // Indigo
+                    } else if (basvuruSikayeti.toLowerCase().contains('nefes')) {
+                      sikayetIcon = Icons.air;
+                      cardColor = const Color(0xFF26A69A); // Teal
+                    } else if (basvuruSikayeti.toLowerCase().contains('çarpıntı')) {
+                      sikayetIcon = Icons.favorite;
+                      cardColor = const Color(0xFFEF5350); // Red
+                    } else if (basvuruSikayeti.toLowerCase().contains('yorgun')) {
+                      sikayetIcon = Icons.battery_alert;
+                      cardColor = const Color(0xFFFFB74D); // Orange
+                    } else if (basvuruSikayeti.toLowerCase().contains('halsizlik')) {
+                      sikayetIcon = Icons.hotel;
+                      cardColor = const Color(0xFF9575CD); // Deep Purple
+                    } else if (basvuruSikayeti.toLowerCase().contains('uyuşma')) {
+                      sikayetIcon = Icons.pan_tool;
+                      cardColor = const Color(0xFF7986CB); // Indigo
+                    } else if (basvuruSikayeti.toLowerCase().contains('kilo')) {
+                      sikayetIcon = Icons.monitor_weight;
+                      cardColor = const Color(0xFF4DB6AC); // Teal
+                    }
+
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: const Offset(0, 2))],
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.withAlpha(38), width: 1),
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: cardColor,
+                          child: Icon(sikayetIcon, color: Colors.white, size: 20),
+                        ),
+                        title: Text(adSoyad),
+                        subtitle: Text('$yas yaş'),
+                        trailing: Text(basvuruSikayeti),
+                        onTap: () {
+                          _startAnalysis(vaka);
+                        },
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// Chatbot widget'ı
+class _ChatbotWidget extends StatefulWidget {
+  @override
+  State<_ChatbotWidget> createState() => _ChatbotWidgetState();
+}
+
+// Chat mesajı sınıfı
+class _ChatMessage {
+  final String text;
+  final bool isUser;
+  
+  _ChatMessage({required this.text, required this.isUser});
+}
+
+class _ChatbotWidgetState extends State<_ChatbotWidget> {
+  final TextEditingController _controller = TextEditingController();
+  final List<_ChatMessage> _messages = [];
+  final List<String> _conversationHistory = [];
+  bool _isLoading = false;
+  String? _apiKey;
+  GeminiApiService? _geminiService;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApiKey();
+    _messages.add(_ChatMessage(text: 'AI Doktor Asistanına Hoş Geldiniz!', isUser: false));
+  }
+
+  Future<void> _loadApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = prefs.getString('gemini_api_key');
+    if (key != null && key.isNotEmpty) {
+      setState(() {
+        _apiKey = key;
+        _geminiService = GeminiApiService(key);
+      });
+    }
+  }
+
+  Future<void> _saveApiKey(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('gemini_api_key', key);
+    setState(() {
+      _apiKey = key;
+      _geminiService = GeminiApiService(key);
+    });
+  }
+
+  void _showApiKeyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => GeminiApiKeyDialog(
+        initialValue: _apiKey,
+        onApiKeySaved: (key) => _saveApiKey(key),
+      ),
+    );
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    
+    if (_apiKey == null || _geminiService == null) {
+      _showApiKeyDialog();
+      return;
+    }
+    
+    setState(() {
+      _messages.add(_ChatMessage(text: text, isUser: true));
+      _isLoading = true;
+    });
+    _controller.clear();
+    
+    try {
+      _conversationHistory.add("Kullanıcı: $text");
+      
+      // Prompt oluştur
+      final prompt = '''
+Sen bir tıbbi yapay zeka asistanısın. Bir doktora yardımcı oluyorsun. 
+Doğru, net ve profesyonel yanıtlar ver. Kullanıcı sorusu: $text
+''';
+
+        'zeynep kayanın şikayeti': 'Zeynep Kaya, 2 aydır devam eden yorgunluk, halsizlik ve uyku problemleri şikayetiyle başvurmuştur.',
+        'zeynep kayanın tahlil': 'Zeynep Kaya\'nın son tahlil sonuçları: HGB: 11 g/dL (sınırda düşük), WBC: 4300/mm³ (normal), PLT: 150000/mm³ (normal), Kreatinin: 0.9 mg/dL (normal), Glukoz: 98 mg/dL (normal).',
+        
+        'mehmet can': 'Mehmet Can 55 yaşında, nefes darlığı şikayetiyle başvurmuş bir hasta. Son tahlil sonuçları: HGB: 15 g/dL, WBC: 12000/mm³, PLT: 450000/mm³, Kreatinin: 1.5 mg/dL, Glukoz: 180 mg/dL.',
+        'mehmet canın şikayeti': 'Mehmet Can, 3 haftadır devam eden nefes darlığı, öksürük ve göğüs ağrısı şikayetiyle başvurmuştur. Şikayetleri özellikle efor sırasında artmaktadır.',
+        'mehmet canın tahlil': 'Mehmet Can\'ın son tahlil sonuçları: HGB: 15 g/dL (normal), WBC: 12000/mm³ (yüksek), PLT: 450000/mm³ (yüksek), Kreatinin: 1.5 mg/dL (sınırda yüksek), Glukoz: 180 mg/dL (yüksek).',
+        
+        // Tıbbi terimler
+        'hemoglobin': 'Hemoglobin (HGB), kanda oksijen taşıyan bir proteindir. Normal değerleri erkeklerde 13.5-17.5 g/dL, kadınlarda 12.0-15.5 g/dL arasındadır. Düşük hemoglobin anemi belirtisi olabilir.',
+        'wbc': 'WBC (White Blood Cell - Beyaz Kan Hücresi), bağışıklık sisteminin bir parçasıdır ve enfeksiyonlarla savaşır. Normal değeri 4500-11000/mm³ arasındadır. Yüksek değerler enfeksiyon veya inflamasyon belirtisi olabilir.',
+        'plt': 'PLT (Platelet - Trombosit), kanın pıhtılaşmasını sağlayan hücrelerdir. Normal değeri 150000-450000/mm³ arasındadır. Düşük değerler kanama riskini artırabilir, yüksek değerler ise pıhtılaşma riskini artırabilir.',
+        'glukoz': 'Glukoz, kan şekeri seviyesini gösteren bir testtir. Normal açlık kan şekeri değeri 70-100 mg/dL arasındadır. 100-125 mg/dL arası prediyabet, 126 mg/dL ve üzeri ise diyabet olarak değerlendirilir.',
+        'kreatinin': 'Kreatinin, böbrek fonksiyonlarını değerlendirmek için kullanılan bir testtir. Normal değeri erkeklerde 0.7-1.3 mg/dL, kadınlarda 0.6-1.1 mg/dL arasındadır. Yüksek değerler böbrek fonksiyon bozukluğu belirtisi olabilir.',
+        
+        // Genel tıbbi sorular
+        'baş ağrısı': 'Baş ağrısı birçok nedene bağlı olabilir: stres, yorgunluk, migren, tansiyon değişiklikleri, sinüzit, göz problemleri veya daha ciddi durumlar. Ağrının yeri, süresi, şiddeti ve eşlik eden belirtiler tanı için önemlidir.',
+        'karın ağrısı': 'Karın ağrısı; sindirim sistemi sorunları, gastrit, ülser, safra kesesi hastalıkları, pankreas problemleri, bağırsak hastalıkları veya jinekolojik sorunlar gibi birçok nedene bağlı olabilir. Ağrının yeri, karakteri ve eşlik eden belirtiler tanı için önemlidir.',
+        'koroner arter hastalığı': 'Koroner Arter Hastalığı (KAH), kalbi besleyen koroner arterlerin daralması veya tıkanması sonucu gelişen bir hastalıktır. Genellikle ateroskleroz (damar sertliği) nedeniyle oluşur. Belirtileri göğüs ağrısı (anjina), nefes darlığı, çarpıntı ve yorgunluk olabilir. Tedavi edilmezse kalp krizi veya kalp yetmezliğine yol açabilir.',
+      };
+
+      String botResponse = '';
+      
+      // Önce sabit yanıtları kontrol et
+      final lowerCaseText = text.toLowerCase();
+      for (final entry in sabitYanitlar.entries) {
+        if (lowerCaseText.contains(entry.key)) {
+          botResponse = entry.value;
+          break;
+        }
+      }
+      
+      // Sabit yanıt bulunamadıysa API'ye istek gönder
+      if (botResponse.isEmpty) {
+        try {
+          final response = await http.post(
+            Uri.parse('https://api-inference.huggingface.co/models/$_chatModel'),
+            headers: {
+              'Authorization': 'Bearer $_huggingFaceApiKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'inputs': prompt,
+              'parameters': {
+                'max_new_tokens': 250,
+                'temperature': 0.7,
+                'top_p': 0.9,
+                'do_sample': true,
+              },
+            }),
+          );
+          
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            botResponse = data[0]['generated_text'] ?? '';
+            
+            // Prompt'u çıkar
+            botResponse = botResponse.replaceAll(prompt, '').trim();
+            
+            // Boş yanıt geldiyse
+            if (botResponse.isEmpty) {
+              botResponse = 'Üzgünüm, bu konuda bilgi veremiyorum. Lütfen başka bir soru sorun.';
+            }
+          } else {
+            botResponse = 'API yanıt vermedi. Lütfen daha sonra tekrar deneyin.';
+          }
+        } catch (e) {
+          botResponse = 'Bir hata oluştu: $e';
+        }
+      }
+      
+      // Yanıtı ekle
+      _conversationHistory.add("Doktor Asistanı: $botResponse");
+      
+      setState(() {
+        _messages.add(_ChatMessage(text: botResponse, isUser: false));
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _messages.add(_ChatMessage(
+          text: 'Bir hata oluştu: $e',
+          isUser: false,
+        ));
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (_apiKey == null)
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.vpn_key),
+              label: const Text('Gemini API Anahtarını Girin'),
+              onPressed: _showApiKeyDialog,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
+            ),
+          ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16.0),
+            itemCount: _messages.length,
+            itemBuilder: (context, index) {
+              final message = _messages[index];
+              return Align(
+                alignment: message.isUser 
+                    ? Alignment.centerRight 
+                    : Alignment.centerLeft,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                  decoration: BoxDecoration(
+                    color: message.isUser 
+                        ? Colors.blue.shade100 
+                        : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(16.0),
+                  ),
+                  child: Text(
+                    message.text,
+                    style: TextStyle(
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: CircularProgressIndicator(),
+          ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(13),
+                blurRadius: 3,
+                offset: const Offset(0, -1),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  decoration: const InputDecoration(
+                    hintText: 'Mesajınızı yazın...',
+                    border: InputBorder.none,
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.send),
+                onPressed: _sendMessage,
+                color: Colors.cyan,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

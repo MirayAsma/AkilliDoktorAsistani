@@ -1,0 +1,755 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:akilli_doktor_asistani/screens/tahlil_analiz_raporu_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+// import '../theme/app_theme.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+final List<Map<String, dynamic>> vakalar = [
+  {
+    'ad_soyad': 'Elif Demir',
+    'yas': 25,
+    'son_lab_tetkik': {'HGB': 10, 'WBC': 5500, 'PLT': 180000, 'Kreatinin': 0.8, 'Glukoz': 90},
+    'basvuru_sikayeti': 'Baş ağrısı',
+  },
+  {
+    'ad_soyad': 'Ahmet Yılmaz',
+    'yas': 40,
+    'son_lab_tetkik': {'HGB': 13, 'WBC': 7000, 'PLT': 220000, 'Kreatinin': 1.1, 'Glukoz': 105},
+    'basvuru_sikayeti': 'Karın ağrısı',
+  },
+  {
+    'ad_soyad': 'Zeynep Kaya',
+    'yas': 32,
+    'son_lab_tetkik': {'HGB': 11, 'WBC': 4300, 'PLT': 150000, 'Kreatinin': 0.9, 'Glukoz': 98},
+    'basvuru_sikayeti': 'Yorgunluk',
+  },
+  {
+    'ad_soyad': 'Mehmet Can',
+    'yas': 55,
+    'son_lab_tetkik': {'HGB': 15, 'WBC': 12000, 'PLT': 450000, 'Kreatinin': 1.5, 'Glukoz': 180},
+    'basvuru_sikayeti': 'Nefes darlığı',
+  },
+  {
+    'ad_soyad': 'Ayşe Polat',
+    'yas': 60,
+    'son_lab_tetkik': {'HGB': 9, 'WBC': 3900, 'PLT': 95000, 'Kreatinin': 2.2, 'Glukoz': 210},
+    'basvuru_sikayeti': 'Çarpıntı',
+  },
+];
+
+class AIAnalysisScreen extends StatelessWidget {
+  const AIAnalysisScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('AI ASİSTAN', style: TextStyle(letterSpacing: 1.5)),
+          backgroundColor: Colors.cyan,
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.people), text: "Hasta Listesi"),
+              Tab(icon: Icon(Icons.chat), text: "AI Doktor Asistanı"),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            const _HastaListesiWidget(),
+            _ChatbotWidget(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HastaListesiWidget extends StatefulWidget {
+  const _HastaListesiWidget({Key? key}) : super(key: key);
+
+  @override
+  State<_HastaListesiWidget> createState() => _HastaListesiWidgetState();
+}
+
+class _HastaListesiWidgetState extends State<_HastaListesiWidget> {
+  // Kullanılmayan fonksiyon kaldırıldı
+  List<Map<String, dynamic>> _vakalar = [];
+  List<Map<String, dynamic>> _filteredVakalar = [];
+  final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVakalar();
+  }
+
+  Future<void> _fetchVakalar() async {
+    try {
+      // print('Firebaseden hasta verileri çekiliyor...');
+      
+      // Firebaseden verileri çek
+      final snapshot = await FirebaseFirestore.instance.collection('cases').get();
+      // print('Firebase sorgusu tamamlandı. Bulunan doküman sayısı: ${snapshot.docs.length}');
+      
+      // Doküman yoksa, örnek verilerle devam et
+      if (snapshot.docs.isEmpty) {
+        // print('Firebasede doküman bulunamadı. Örnek veriler kullanılacak.');
+        setState(() {
+          _vakalar = vakalar; // Sabit tanımlı örnek veriler
+          _filteredVakalar = List<Map<String, dynamic>>.from(vakalar);
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      // Dokümanları işle
+      final patients = snapshot.docs.map((doc) {
+        final data = doc.data();
+        // print('Doküman ID: ${doc.id}, Veri: $data');
+        return {...data, 'id': doc.id};
+      }).toList();
+      
+      final seenNames = <String>{};
+      final uniquePatients = <Map<String, dynamic>>[];
+      
+      for (final patient in patients) {
+        final name = patient['ad_soyad']?.toString() ?? '';
+        // print('Hasta adı: $name, ID: ${patient["id"]}');
+        
+        if (name.isNotEmpty && !seenNames.contains(name)) {
+          seenNames.add(name);
+          uniquePatients.add(patient);
+        }
+      }
+      
+      setState(() {
+        _vakalar = uniquePatients.isEmpty ? vakalar : uniquePatients;
+        _filteredVakalar = List<Map<String, dynamic>>.from(_vakalar);
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Veri çekme hatası: $e');
+      }
+      setState(() {
+        _errorMessage = 'Hasta verileri yüklenirken bir hata oluştu: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterVakalar(String value) {
+    setState(() {
+      _filteredVakalar = _vakalar.where((vaka) {
+        final adSoyad = (vaka['ad_soyad'] ?? '').toLowerCase();
+        return adSoyad.contains(value.toLowerCase());
+      }).toList();
+    });
+  }
+
+  // Analiz iÅŸlemini baÅŸlat ve sonra navigasyon yap
+  void _startAnalysis(Map<String, dynamic> vaka) {
+    // Ã–nce dialog'u gÃ¶ster
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    // Sonra analiz iÅŸlemini yap
+    _runAnalysis(vaka);
+  }
+  
+  // Analiz iÅŸlemini gerÃ§ekleÅŸtir
+  Future<void> _runAnalysis(Map<String, dynamic> vaka) async {
+    try {
+      if (kDebugMode) {
+        print('Analiz baÅŸlatÄ±lÄ±yor. Vaka bilgileri: ${vaka.toString()}');
+        print('Hasta ID: ${vaka['id'] ?? "ID bulunamadÄ±"}');
+      }
+      
+      // Tahlil verilerini al - bu veriler TahlilAnalizSonuclariPage'de kullanÄ±lacak
+      // Burada herhangi bir API isteÄŸi yapmÄ±yoruz, analiz iÅŸlemi TahlilAnalizSonuclariPage'de gerÃ§ekleÅŸecek
+      // Bu sayede kullanÄ±cÄ± hemen rapor sayfasÄ±na yÃ¶nlendirilecek
+      
+      // Analiz baÅŸarÄ±lÄ± olduysa
+      if (mounted) {
+        // Ã–nce dialog'u kapat
+        Navigator.of(context).pop();
+        
+        // Sonra rapor sayfasÄ±na git
+        final hastaId = vaka['id'] ?? '';
+        if (kDebugMode) {
+          print('Rapor sayfasÄ±na yÃ¶nlendiriliyor. Hasta ID: $hastaId');
+        }
+        _navigateToReport(hastaId);
+      }
+    } catch (e) {
+      // Hata durumunda
+      if (kDebugMode) {
+        print('Analiz sÄ±rasÄ±nda hata: $e');
+      }
+      if (mounted) {
+        Navigator.of(context).pop();
+        // Hata mesajÄ± gÃ¶ster
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Analiz sÄ±rasÄ±nda hata oluÅŸtu: $e')),
+        );
+      }
+    }
+  }
+  
+  // Rapor sayfasÄ±na git
+  void _navigateToReport(String hastaId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TahlilAnalizRaporuPage(
+          hastaId: hastaId,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00ACC1)),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Hasta verileri yükleniyor...',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.red, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _fetchVakalar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00ACC1),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Tekrar Dene'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return Column(
+      children: [
+        // Modern arama kutusu
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: const [
+              BoxShadow(color: Color(0x0F000000), blurRadius: 3, offset: Offset(0, 1)),
+            ],
+          ),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Hasta ismi ile ara...',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              prefixIcon: Icon(Icons.search, color: Colors.grey.shade400, size: 18),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear, size: 14, color: Colors.grey.shade400),
+                      onPressed: () {
+                        _searchController.clear();
+                        _filterVakalar('');
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            onChanged: _filterVakalar,
+          ),
+        ),
+        // Hasta listesi
+        Expanded(
+          child: _filteredVakalar.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.search_off, size: 48, color: Color(0xFFBDBDBD)),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Aramanıza uygun hasta bulunamadı',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _filteredVakalar.length,
+                  itemBuilder: (context, index) {
+                    final vaka = _filteredVakalar[index];
+                    final adSoyad = vaka['ad_soyad'] ?? '';
+                    final yas = vaka['yas'] ?? 0;
+                    final basvuruSikayeti = vaka['basvuru_sikayeti'] ?? '';
+                    
+                    // Şikayet tipine göre ikon ve renk belirleme
+                    IconData sikayetIcon = Icons.medical_services;
+                    Color cardColor = const Color(0xFF4FC3F7); // Default renk
+                    
+                    if (basvuruSikayeti.toLowerCase().contains('ağrı')) {
+                      sikayetIcon = Icons.healing;
+                      cardColor = const Color(0xFF5C6BC0); // Indigo
+                    } else if (basvuruSikayeti.toLowerCase().contains('nefes')) {
+                      sikayetIcon = Icons.air;
+                      cardColor = const Color(0xFF26A69A); // Teal
+                    } else if (basvuruSikayeti.toLowerCase().contains('çarpıntı')) {
+                      sikayetIcon = Icons.favorite;
+                      cardColor = const Color(0xFFEF5350); // Red
+                    } else if (basvuruSikayeti.toLowerCase().contains('yorgun')) {
+                      sikayetIcon = Icons.battery_alert;
+                      cardColor = const Color(0xFFFFB74D); // Orange
+                    } else if (basvuruSikayeti.toLowerCase().contains('halsizlik')) {
+                      sikayetIcon = Icons.hotel;
+                      cardColor = const Color(0xFF9575CD); // Deep Purple
+                    } else if (basvuruSikayeti.toLowerCase().contains('uyuşma')) {
+                      sikayetIcon = Icons.pan_tool;
+                      cardColor = const Color(0xFF7986CB); // Indigo
+                    } else if (basvuruSikayeti.toLowerCase().contains('kilo')) {
+                      sikayetIcon = Icons.monitor_weight;
+                      cardColor = const Color(0xFF4DB6AC); // Teal
+                    }
+
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 4, offset: const Offset(0, 2))],
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.withAlpha(40), width: 1),
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: cardColor,
+                          child: Icon(sikayetIcon, color: Colors.white, size: 20),
+                        ),
+                        title: Text(adSoyad),
+                        subtitle: Text('$yas yaş'),
+                        trailing: Text(basvuruSikayeti),
+                        onTap: () {
+                          _startAnalysis(vaka);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+  }
+}
+
+// ChatMessage sınıfı tanımı
+class _ChatMessage {
+  final String text;
+  final bool isUser;
+  _ChatMessage({required this.text, required this.isUser});
+}
+
+// Chatbot widget'ı
+class _ChatbotWidget extends StatefulWidget {
+  @override
+  State<_ChatbotWidget> createState() => _ChatbotWidgetState();
+}
+
+class _ChatbotWidgetState extends State<_ChatbotWidget> {
+  final TextEditingController _controller = TextEditingController();
+  final List<_ChatMessage> _messages = [];
+  bool _isLoading = false;
+  final List<String> _conversationHistory = [];
+
+  // Hugging Face API anahtarı
+  final String _huggingFaceApiKey = '***REMOVED***';
+  // Türkçe için optimize edilmiş ücretsiz model
+  final String _chatModel = 'dbmdz/bert-base-turkish-cased';
+  
+  @override
+  void initState() {
+    super.initState();
+    // Hoş geldiniz mesajı
+    _messages.add(_ChatMessage(
+      text: 'AI Doktor Asistanına Hoş Geldiniz!',
+      isUser: false,
+    ));
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    
+    setState(() {
+      _messages.add(_ChatMessage(text: text, isUser: true));
+      _isLoading = true;
+    });
+    _controller.clear();
+    
+    try {
+      // Konuşma geçmişini oluştur
+      if (_conversationHistory.length > 10) {
+        _conversationHistory.removeRange(0, _conversationHistory.length - 8);
+      }
+      _conversationHistory.add("Kullanıcı: $text");
+      
+      // Prompt oluştur
+      final prompt = '''
+Sen bir tıbbi yapay zeka asistanısın. Bir doktora yardımcı oluyorsun. Aşağıdaki konuşmayı değerlendirerek doğru, net ve profesyonel yanıtlar ver.
+
+${_conversationHistory.join('\n')}
+
+Doktor Asistanı:
+''';
+
+      // Sabit yanıtlar - model yanıt vermezse bunları kullanacağız
+      final Map<String, String> sabitYanitlar = {
+        // Hasta bilgileri
+        'elif demir kaç yaşında': 'Elif Demir 25 yaşındadır.',
+        'elif demir': 'Elif Demir 25 yaşında, baş ağrısı şikayetiyle başvurmuş bir hasta. Son tahlil sonuçları: HGB: 10 g/dL, WBC: 5500/mm³, PLT: 180000/mm³, Kreatinin: 0.8 mg/dL, Glukoz: 90 mg/dL.',
+        'elif demirin şikayeti': 'Elif Demir, 3 gündür devam eden şiddetli baş ağrısı şikayetiyle başvurmuştur. Ağrı alın bölgesinde yoğunlaşmakta ve zaman zaman bulantı eşlik etmektedir.',
+        'elif demirin tahlil': 'Elif Demir\'in son tahlil sonuçları: HGB: 10 g/dL (düşük), WBC: 5500/mm³ (normal), PLT: 180000/mm³ (normal), Kreatinin: 0.8 mg/dL (normal), Glukoz: 90 mg/dL (normal).',
+        
+        'ahmet yılmaz': 'Ahmet Yılmaz 40 yaşında, karın ağrısı şikayetiyle başvurmuş bir hasta. Son tahlil sonuçları: HGB: 13 g/dL, WBC: 7000/mm³, PLT: 220000/mm³, Kreatinin: 1.1 mg/dL, Glukoz: 105 mg/dL.',
+        'ahmet yılmazın şikayeti': 'Ahmet Yılmaz, 1 haftadır devam eden karın ağrısı ve hazımsızlık şikayetiyle başvurmuştur. Ağrı özellikle yemeklerden sonra artmaktadır.',
+        'ahmet yılmazın tahlil': 'Ahmet Yılmaz\'ın son tahlil sonuçları: HGB: 13 g/dL (normal), WBC: 7000/mm³ (normal), PLT: 220000/mm³ (normal), Kreatinin: 1.1 mg/dL (normal), Glukoz: 105 mg/dL (sınırda yüksek).',
+        
+        'zeynep kaya': 'Zeynep Kaya 32 yaşında, yorgunluk şikayetiyle başvurmuş bir hasta. Son tahlil sonuçları: HGB: 11 g/dL, WBC: 4300/mm³, PLT: 150000/mm³, Kreatinin: 0.9 mg/dL, Glukoz: 98 mg/dL.',
+        'zeynep kayanın şikayeti': 'Zeynep Kaya, 2 aydır devam eden yorgunluk, halsizlik ve konsantrasyon güçlüğü şikayetiyle başvurmuştur. Son zamanlarda iş performansı düşmüştür.',
+        'zeynep kayanın tahlil': 'Zeynep Kaya\'nın son tahlil sonuçları: HGB: 11 g/dL (hafif düşük), WBC: 4300/mm³ (normal), PLT: 150000/mm³ (normal), Kreatinin: 0.9 mg/dL (normal), Glukoz: 98 mg/dL (normal).',
+        
+        'mehmet can': 'Mehmet Can 55 yaşında, nefes darlığı şikayetiyle başvurmuş bir hasta. Son tahlil sonuçları: HGB: 15 g/dL, WBC: 12000/mm³, PLT: 450000/mm³, Kreatinin: 1.5 mg/dL, Glukoz: 180 mg/dL.',
+        'mehmet canın şikayeti': 'Mehmet Can, 10 gündür giderek artan nefes darlığı, öksürük ve göğüs ağrısı şikayetiyle başvurmuştur. Özellikle merdiven çıkarken nefes darlığı şiddetlenmektedir.',
+        'mehmet canın tahlil': 'Mehmet Can\'\u0131n son tahlil sonuçları: HGB: 15 g/dL (normal), WBC: 12000/mm³ (yüksek), PLT: 450000/mm³ (sınırda yüksek), Kreatinin: 1.5 mg/dL (yüksek), Glukoz: 180 mg/dL (yüksek).',
+        
+        'ayşe polat': 'Ayşe Polat 60 yaşında, çarpıntı şikayetiyle başvurmuş bir hasta. Son tahlil sonuçları: HGB: 9 g/dL, WBC: 3900/mm³, PLT: 95000/mm³, Kreatinin: 2.2 mg/dL, Glukoz: 210 mg/dL.',
+        'ayşe polatın şikayeti': 'Ayşe Polat, 3 haftadır devam eden çarpıntı, halsizlik ve nefes darlığı şikayetiyle başvurmuştur. Çarpıntılar özellikle geceleri artmaktadır.',
+        'ayşe polatın tahlil': 'Ayşe Polat\'ın son tahlil sonuçları: HGB: 9 g/dL (düşük), WBC: 3900/mm³ (düşük), PLT: 95000/mm³ (düşük), Kreatinin: 2.2 mg/dL (yüksek), Glukoz: 210 mg/dL (yüksek).',
+        
+        // Tıbbi terimler
+        'hemoglobin': 'Hemoglobin (HGB), kanda oksijen taşıyan bir proteindir. Normal değerleri erkeklerde 13.5-17.5 g/dL, kadınlarda 12.0-15.5 g/dL arasındadır. Düşük hemoglobin anemi belirtisi olabilir.',
+        'wbc': 'WBC (White Blood Cell - Beyaz Kan Hücresi), vücudun enfeksiyonlara karşı savunmasını gösteren bir değerdir. Normal değerleri 4,500-11,000 hücre/mm³ arasındadır. Yüksek değerler enfeksiyon veya inflamasyon, düşük değerler ise bağışıklık sisteminde baskılanma gösterebilir.',
+        'plt': 'PLT (Platelet - Trombosit), kan pıhtılaşmasında rol oynayan kan hücresidir. Normal değerleri 150,000-450,000 hücre/mm³ arasındadır. Düşük değerler kanama riski, yüksek değerler ise pıhtılaşma riski oluşturabilir.',
+        'kreatinin': 'Kreatinin, böbrek fonksiyonlarını değerlendirmek için kullanılan bir kan testidir. Normal değerleri erkeklerde 0.7-1.3 mg/dL, kadınlarda 0.6-1.1 mg/dL arasındadır. Yüksek kreatinin değerleri böbrek fonksiyon bozukluğunu gösterebilir.',
+        'glukoz': 'Glukoz, kan şekeri seviyesini gösteren bir testtir. Normal açlık kan şekeri değeri 70-100 mg/dL arasındadır. 100-125 mg/dL arası prediyabet, 126 mg/dL ve üzeri ise diyabet olarak değerlendirilir.',
+        
+        // Genel tıbbi sorular
+        'anemi': 'Anemi (kansızlık), kanda yeterli sağlıklı kırmızı kan hücresi veya hemoglobin eksikliğidir. Belirtileri yorgunluk, solgunluk, nefes darlığı, baş dönmesi, çarpıntı olabilir. Demir eksikliği, B12 vitamini eksikliği, kronik hastalıklar veya genetik nedenlerle oluşabilir.',
+        'diyabet': 'Diyabet (Diabetes Mellitus), vücudun insülin hormonunu yeterince üretememesi veya etkili kullanamaması sonucu gelişen kronik bir metabolizma hastalığıdır. Tip 1 ve Tip 2 olmak üzere iki ana türü vardır. Belirtileri sık idrara çıkma, aşırı susama, açlık, kilo kaybı, yorgunluk, bulaşık görme, yara iyileşmesinde gecikme olabilir.',
+        'hipertansiyon': 'Hipertansiyon (yüksek tansiyon), kan basıncının kronik olarak yüksek olması durumudur. Genellikle 140/90 mmHg ve üzeri değerler hipertansiyon olarak kabul edilir. Çoğu zaman belirti vermez ("sessiz katil"), bazen baş ağrısı, burun kanaması, görme bozukluğu, kulak çınlaması görülebilir.',
+        'koroner arter hastalığı': 'Koroner Arter Hastalığı (KAH), kalbi besleyen koroner arterlerin daralması veya tıkanması sonucu gelişen bir hastalıktır. Genellikle ateroskleroz (damar sertliği) nedeniyle oluşur. Belirtileri göğüs ağrısı (anjina), nefes darlığı, çarpıntı ve yorgunluk olabilir. Tedavi edilmezse kalp krizi veya kalp yetmezliğine yol açabilir.',
+      };
+      
+      // Kullanıcının sorusunu işle
+      final lowerCaseText = text.toLowerCase().trim();
+      String botResponse = "Üzgünüm, bu konuda bilgim yok. Lütfen başka bir soru sorun.";
+      
+      // Soru kelimelerini ve anahtar kelimeleri ayıkla
+      final List<String> patientNames = ['elif', 'ahmet', 'zeynep', 'mehmet', 'ayşe'];
+      final List<String> patientSurnames = ['demir', 'yılmaz', 'kaya', 'can', 'polat'];
+      final List<String> medicalTerms = ['hemoglobin', 'wbc', 'plt', 'kreatinin', 'glukoz', 'anemi', 'diyabet', 'hipertansiyon', 
+                                         'koroner', 'kalp', 'böbrek', 'karaciğer', 'akciğer', 'tiroit', 'kolesterol', 'ldl', 'hdl',
+                                         'ast', 'alt', 'ggt', 'tsh', 't3', 't4', 'üre', 'crp', 'sedim', 'hba1c', 'trigliserit'];
+      
+      // Soruda geçen anahtar kelimeleri belirle
+      String patientName = patientNames.firstWhere((name) => lowerCaseText.contains(name), orElse: () => '');
+      String patientSurname = patientSurnames.firstWhere((surname) => lowerCaseText.contains(surname), orElse: () => '');
+      String medicalTerm = medicalTerms.firstWhere((term) => lowerCaseText.contains(term), orElse: () => '');
+      
+      // Hasta şikayeti soruları
+      if (patientName.isNotEmpty && patientSurname.isNotEmpty && lowerCaseText.contains('şikayet')) {
+        // Hasta adı ve soyadı eşleşmesi
+        if (patientName == 'elif' && patientSurname == 'demir') {
+          botResponse = 'Elif Demir, 3 gündür devam eden şiddetli baş ağrısı şikayetiyle başvurmuştur. Ağrı alın bölgesinde yoğunlaşmakta ve zaman zaman bulantı eşlik etmektedir.';
+        } 
+        else if (patientName == 'ahmet' && patientSurname == 'yılmaz') {
+          botResponse = 'Ahmet Yılmaz, 1 haftadır devam eden karın ağrısı ve hazımsızlık şikayetiyle başvurmuştur. Ağrı özellikle yemeklerden sonra artmaktadır.';
+        }
+        else if (patientName == 'zeynep' && patientSurname == 'kaya') {
+          botResponse = 'Zeynep Kaya, 2 aydır devam eden yorgunluk, halsizlik ve konsantrasyon güçlüğü şikayetiyle başvurmuştur. Son zamanlarda iş performansı düşmüştür.';
+        }
+        else if (patientName == 'mehmet' && patientSurname == 'can') {
+          botResponse = 'Mehmet Can, 10 gündür giderek artan nefes darlığı, öksürük ve göğüs ağrısı şikayetiyle başvurmuştur. Özellikle merdiven çıkarken nefes darlığı şiddetlenmektedir.';
+        }
+        else if (patientName == 'ayşe' && patientSurname == 'polat') {
+          botResponse = 'Ayşe Polat, 3 haftadır devam eden çarpıntı, halsizlik ve nefes darlığı şikayetiyle başvurmuştur. Çarpıntılar özellikle geceleri artmaktadır.';
+        }
+      }
+      // Yaş soruları
+      else if (patientName.isNotEmpty && patientSurname.isNotEmpty && (lowerCaseText.contains('yaş') || lowerCaseText.contains('kaç yaşında'))) {
+        if (patientName == 'elif' && patientSurname == 'demir') {
+          botResponse = 'Elif Demir 25 yaşındadır.';
+        } 
+        else if (patientName == 'ahmet' && patientSurname == 'yılmaz') {
+          botResponse = 'Ahmet Yılmaz 40 yaşındadır.';
+        }
+        else if (patientName == 'zeynep' && patientSurname == 'kaya') {
+          botResponse = 'Zeynep Kaya 32 yaşındadır.';
+        }
+        else if (patientName == 'mehmet' && patientSurname == 'can') {
+          botResponse = 'Mehmet Can 55 yaşındadır.';
+        }
+        else if (patientName == 'ayşe' && patientSurname == 'polat') {
+          botResponse = 'Ayşe Polat 60 yaşındadır.';
+        }
+      }
+      // Tahlil soruları
+      else if (patientName.isNotEmpty && patientSurname.isNotEmpty && (lowerCaseText.contains('tahlil') || lowerCaseText.contains('sonuç'))) {
+        if (patientName == 'elif' && patientSurname == 'demir') {
+          botResponse = 'Elif Demir\'in son tahlil sonuçları: HGB: 10 g/dL (düşük), WBC: 5500/mm³ (normal), PLT: 180000/mm³ (normal), Kreatinin: 0.8 mg/dL (normal), Glukoz: 90 mg/dL (normal).';
+        } 
+        else if (patientName == 'ahmet' && patientSurname == 'yılmaz') {
+          botResponse = 'Ahmet Yılmaz\'ın son tahlil sonuçları: HGB: 13 g/dL (normal), WBC: 7000/mm³ (normal), PLT: 220000/mm³ (normal), Kreatinin: 1.1 mg/dL (normal), Glukoz: 105 mg/dL (sınırda yüksek).';
+        }
+        else if (patientName == 'zeynep' && patientSurname == 'kaya') {
+          botResponse = 'Zeynep Kaya\'nın son tahlil sonuçları: HGB: 11 g/dL (hafif düşük), WBC: 4300/mm³ (normal), PLT: 150000/mm³ (normal), Kreatinin: 0.9 mg/dL (normal), Glukoz: 98 mg/dL (normal).';
+        }
+        else if (patientName == 'mehmet' && patientSurname == 'can') {
+          botResponse = 'Mehmet Can\'ın son tahlil sonuçları: HGB: 15 g/dL (normal), WBC: 12000/mm³ (yüksek), PLT: 450000/mm³ (sınırda yüksek), Kreatinin: 1.5 mg/dL (yüksek), Glukoz: 180 mg/dL (yüksek).';
+        }
+        else if (patientName == 'ayşe' && patientSurname == 'polat') {
+          botResponse = 'Ayşe Polat\'ın son tahlil sonuçları: HGB: 9 g/dL (düşük), WBC: 3900/mm³ (düşük), PLT: 95000/mm³ (düşük), Kreatinin: 2.2 mg/dL (yüksek), Glukoz: 210 mg/dL (yüksek).';
+        }
+      }
+      // Tıbbi terim soruları
+      else if (medicalTerm.isNotEmpty) {
+        // Sabit yanıtları kontrol et
+        bool found = false;
+        for (final entry in sabitYanitlar.entries) {
+          if (entry.key == medicalTerm) {
+            botResponse = entry.value;
+            found = true;
+            break;
+          }
+        }
+        
+        // Eğer terim için yanıt bulunamadıysa, belirtiler veya tedavi hakkında mı soruluyor?
+        if (!found) {
+          if (lowerCaseText.contains('belirtileri') || lowerCaseText.contains('semptom')) {
+            botResponse = '$medicalTerm için belirtiler hakkında bilgi vermek gerekirse, bu hastalık/durum için tipik belirtiler şunlardır: ';
+            
+            // Bazı hastalıklar için özel belirtiler ekle
+            if (medicalTerm == 'anemi') {
+              botResponse += 'Yorgunluk, halsizlik, soluk cilt, nefes darlığı, baş dönmesi, çarpıntı.';
+            } else if (medicalTerm == 'diyabet') {
+              botResponse += 'Sık idrara çıkma, aşırı susama, açlık, kilo kaybı, yorgunluk, bulaşık görme, yara iyileşmesinde gecikme.';
+            } else if (medicalTerm == 'hipertansiyon') {
+              botResponse += 'Genellikle belirti vermez ("sessiz katil"), bazen baş ağrısı, burun kanaması, görme bozukluğu, kulak çınlaması görülebilir.';
+            } else {
+              botResponse += 'Bu konuda daha detaylı bilgi için lütfen spesifik bir hastalık adı belirtin.';
+            }
+          } else if (lowerCaseText.contains('tedavi') || lowerCaseText.contains('tedavisi')) {
+            botResponse = '$medicalTerm tedavisi hakkında genel bilgi vermek gerekirse: ';
+            
+            // Bazı hastalıklar için özel tedavi bilgileri ekle
+            if (medicalTerm == 'anemi') {
+              botResponse += 'Demir takviyesi, B12 vitamini takviyesi, folik asit takviyesi, altta yatan nedene yönelik tedavi.';
+            } else if (medicalTerm == 'diyabet') {
+              botResponse += 'Yaşam tarzı değişiklikleri (diyet, egzersiz), oral antidiyabetik ilaçlar, insülin tedavisi, düzenli kan şekeri takibi.';
+            } else if (medicalTerm == 'hipertansiyon') {
+              botResponse += 'Yaşam tarzı değişiklikleri (tuz kısıtlaması, kilo verme, egzersiz), antihipertansif ilaçlar (ACE inhibitörleri, ARB, beta blokerler, kalsiyum kanal blokerleri, diüretikler).';
+            } else {
+              botResponse += 'Bu konuda daha detaylı bilgi için lütfen spesifik bir hastalık adı belirtin.';
+            }
+          }
+        }
+      }
+      // Diğer sorular için genel sabit yanıtları kontrol et
+      else {
+        for (final entry in sabitYanitlar.entries) {
+          if (lowerCaseText.contains(entry.key)) {
+            botResponse = entry.value;
+            break; // İlk eşleşmeyi bulduktan sonra döngüyü sonlandır
+          }
+        }
+      }
+      
+      // Eğer sabit yanıtlarda yoksa, API'ye istek gönder
+      if (botResponse == "Üzgünüm, bu konuda bilgim yok. Lütfen başka bir soru sorun.") {
+        try {
+          // API isteği gönder
+          final response = await http.post(
+            Uri.parse('https://api-inference.huggingface.co/models/$_chatModel'),
+            headers: {
+              'Authorization': 'Bearer $_huggingFaceApiKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'inputs': prompt,
+              'parameters': {
+                'max_length': 150,
+                'temperature': 0.7,
+              }
+            }),
+          );
+          
+          // Yanıtı işle
+          if (response.statusCode == 200) {
+            final jsonResponse = jsonDecode(response.body);
+            if (jsonResponse is List && jsonResponse.isNotEmpty) {
+              final generatedText = jsonResponse[0]['generated_text'] as String;
+              botResponse = generatedText;
+            }
+          }
+        } catch (e) {
+          // print('API isteği sırasında hata: $e');
+        }
+      }
+      
+      // Yanıtı göster
+      setState(() {
+        _messages.add(_ChatMessage(text: botResponse, isUser: false));
+        _isLoading = false;
+      });
+    } catch (e) {
+      // print('Mesaj gönderirken hata: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            itemCount: _messages.length,
+            itemBuilder: (context, index) {
+              final message = _messages[index];
+              return Align(
+                alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: message.isUser ? Colors.blue.shade200 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.cyan,
+                        radius: 16,
+                        child: Center(
+                          child: Text(
+                            message.isUser ? 'S' : 'A',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          message.text,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        // Mesaj gönderme alanı
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.2),
+                spreadRadius: 1,
+                blurRadius: 2,
+                offset: const Offset(0, -1),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  decoration: const InputDecoration(
+                    hintText: 'Mesajınızı yazın...',
+                    border: InputBorder.none,
+                  ),
+                  onSubmitted: (text) {
+                    if (text.isNotEmpty) _sendMessage();
+                  },
+                ),
+              ),
+              IconButton(
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send),
+                onPressed: _isLoading ? null : () => _sendMessage(),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

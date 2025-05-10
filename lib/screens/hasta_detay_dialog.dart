@@ -15,7 +15,18 @@ class HastaDetayDialog extends StatelessWidget {
     this.oncekiTetkik,
   }) : super(key: key);
 
-  String _str(dynamic val) => val == null ? 'Yok' : val.toString();
+  String _str(dynamic val) => val == null ? 'Veri yok' : val.toString();
+  
+  String _formatListValue(dynamic listVal) {
+    if (listVal == null) return 'Veri yok';
+    
+    if (listVal is List) {
+      if (listVal.isEmpty) return 'Veri yok';
+      return listVal.join('\n');
+    }
+    
+    return listVal.toString();
+  }
 
   Widget _buildInfoRow(String label, String value, IconData? icon) {
     // Her etiket için anlamlı renk belirleme
@@ -59,6 +70,33 @@ class HastaDetayDialog extends StatelessWidget {
         break;
       case 'Uyarı':
         iconColor = Colors.amber;
+        break;
+      case 'Kronik Hastalıklar':
+        iconColor = Colors.red.shade800;
+        break;
+      case 'Sürekli İlaçlar':
+        iconColor = Colors.teal.shade700;
+        break;
+      case 'Alerjiler':
+        iconColor = Colors.orange.shade800;
+        break;
+      case 'Aile Öyküsü':
+        iconColor = Colors.purple.shade700;
+        break;
+      case 'Sigara Kullanımı':
+        iconColor = Colors.brown;
+        break;
+      case 'Alkol Kullanımı':
+        iconColor = Colors.amber.shade900;
+        break;
+      case 'Madde Kullanımı':
+        iconColor = Colors.red.shade900;
+        break;
+      case 'Meslek':
+        iconColor = Colors.blue.shade800;
+        break;
+      case 'Medeni Durum':
+        iconColor = Colors.pink.shade800;
         break;
       default:
         iconColor = Colors.blueGrey;
@@ -151,7 +189,14 @@ class HastaDetayDialog extends StatelessWidget {
             children: items.map((item) => 
               Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text(item.trim(), style: const TextStyle(fontSize: 15)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(item.trim(), style: const TextStyle(fontSize: 15)),
+                    ),
+                  ],
+                ),
               )
             ).toList(),
           );
@@ -162,7 +207,14 @@ class HastaDetayDialog extends StatelessWidget {
           children: lines.map((line) => 
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text(line.trim(), style: const TextStyle(fontSize: 15)),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(line.trim(), style: const TextStyle(fontSize: 15)),
+                  ),
+                ],
+              ),
             )
           ).toList(),
         );
@@ -210,22 +262,48 @@ class HastaDetayDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Hasta Bilgileri', 
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyan)),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.cyan)),
                     const Divider(color: Colors.cyan),
                     const SizedBox(height: 12),
                     _buildInfoRow('Ad Soyad', _str(hasta['ad_soyad']), Icons.person),
                     _buildInfoRow('Yaş', _str(hasta['yas']), Icons.cake),
                     _buildInfoRow('Cinsiyet', _str(hasta['cinsiyet']), Icons.wc),
                     _buildInfoRow('Başvuru Şikayeti', _str(hasta['basvuru_sikayeti']), Icons.medical_information),
-                    _buildInfoRow('Önceki Görüntüleme', _str(hasta['onceki_goruntuleme']), Icons.image),
-                    _buildInfoRow('Ameliyat', _str(hasta['ameliyat']), Icons.local_hospital),
-                    _buildInfoRow('Patoloji Sonucu', _str(hasta['patoloji'] ?? 'yok'), Icons.science),
-                    _buildInfoRow('Doğum Öyküsü', _str(hasta['dogum_oykusu']), Icons.child_friendly),
+                    
+                    // Vital bulgular
                     _buildInfoRow('Tansiyon', _str(hasta['tansiyon'] ?? '110/70 mmHg'), Icons.monitor_heart),
                     _buildInfoRow('Nabız', _str(hasta['nabiz']), Icons.favorite),
                     _buildInfoRow('Ateş', _str(hasta['ates']), Icons.thermostat),
-                    _buildInfoRow('Önceki Tedavi', _str(hasta['onceki_tedavi']), Icons.medication),
+                    
+                    // Kronik hastalıklar ve ilaçlar
+                    _buildInfoRow('Kronik Hastalıklar', _formatListValue(hasta['kronik_hastaliklar']), Icons.medical_services),
+                    _buildInfoRow('Sürekli İlaçlar', _formatListValue(hasta['surekli_ilaclar']), Icons.medication),
+                    
+                    // Alerjiler ve uyarılar
+                    _buildInfoRow('Alerjiler', _formatListValue(hasta['alerjiler']), Icons.health_and_safety),
                     _buildInfoRow('Uyarı', _str(hasta['uyari'] ?? 'yok'), Icons.warning),
+                    
+                    // Aile öyküsü
+                    _buildInfoRow('Aile Öyküsü', _formatListValue(hasta['aile_oykusu']), Icons.family_restroom),
+                    
+                    // Sigara, alkol ve madde kullanımı
+                    _buildInfoRow('Sigara Kullanımı', _str(hasta['sigara_kullanimi']), Icons.smoking_rooms),
+                    _buildInfoRow('Alkol Kullanımı', _str(hasta['alkol_kullanimi']), Icons.liquor),
+                    _buildInfoRow('Madde Kullanımı', _str(hasta['madde_kullanimi']), Icons.dangerous),
+                    
+                    // Sosyal bilgiler
+                    _buildInfoRow('Meslek', _str(hasta['meslek']), Icons.work),
+                    _buildInfoRow('Medeni Durum', _str(hasta['medeni_durum']), Icons.people),
+                    
+                    // Görüntüleme ve tedavi bilgileri
+                    _buildInfoRow('Son Görüntüleme', _str(hasta['son_goruntuleme']), Icons.image),
+                    _buildInfoRow('Önceki Görüntüleme', _str(hasta['onceki_goruntuleme']), Icons.image_search),
+                    _buildInfoRow('Önceki Tedavi', _str(hasta['onceki_tedavi']), Icons.medication),
+                    
+                    // Diğer bilgiler
+                    _buildInfoRow('Ameliyat', _str(hasta['ameliyat']), Icons.local_hospital),
+                    _buildInfoRow('Patoloji Sonucu', _str(hasta['patoloji'] ?? 'yok'), Icons.science),
+                    _buildInfoRow('Doğum Öyküsü', _str(hasta['dogum_oykusu']), Icons.child_friendly),
                   ],
                 ),
               ),
