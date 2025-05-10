@@ -25,7 +25,7 @@ Bu seçenek, mevcut uygulamanızı değiştirmeden OpenAI API'yi kullanmanızı 
 2. "AI Analizi Başlat" butonuna tıklayın
 3. Açılan dialog'a OpenAI API anahtarınızı girin:
    ```
-   ***REMOVED***
+   API_KEY_BURAYA_EKLENECEK (API anahtarını doğrudan koda eklemek yerine, ApiKeyService sınıfı üzerinden güvenli bir şekilde saklayın)
    ```
 4. Analiz otomatik olarak başlayacaktır
 

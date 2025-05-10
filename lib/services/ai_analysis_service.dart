@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 // Hugging Face API anahtarı
-const String _huggingFaceApiKey = '***REMOVED***';
+String _huggingFaceApiKey = ''; // API anahtarı güvenli bir şekilde saklanmalı
 
 // Kullanılabilecek modeller - ücretsiz ve açık erişimli modeller
 const String _defaultModel = 'distilbert-base-uncased'; // Daha açık erişimli bir model

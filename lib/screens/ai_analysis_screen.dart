@@ -640,7 +640,7 @@ class _GeminiChatbotWidgetState extends State<_GeminiChatbotWidget> {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   late OpenAIAnalysisService _openaiService;
-  final String _openaiKey = '***REMOVED***'; // Güvenlik için burada tutma, test amaçlı
+  String _openaiKey = ''; // API anahtarı ApiKeyService üzerinden güvenli şekilde alınacak
 
   @override
   void initState() {
