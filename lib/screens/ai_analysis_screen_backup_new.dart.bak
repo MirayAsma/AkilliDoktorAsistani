@@ -412,7 +412,7 @@ class _ChatbotWidgetState extends State<_ChatbotWidget> {
   final List<String> _conversationHistory = [];
 
   // Hugging Face API anahtarı
-  final String _huggingFaceApiKey = '***REMOVED***';
+  String _huggingFaceApiKey = ''; // API anahtarı güvenli bir şekilde saklanmalı
   // Türkçe için optimize edilmiş ücretsiz model
   final String _chatModel = 'dbmdz/bert-base-turkish-cased';
   
