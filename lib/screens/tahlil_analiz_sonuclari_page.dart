@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:akilli_doktor_asistani/services/huggingface_analysis_service.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'dart:math';
 import 'package:akilli_doktor_asistani/services/api_key_service.dart';
 import 'package:akilli_doktor_asistani/widgets/api_key_dialog.dart';
+import 'package:akilli_doktor_asistani/services/gemini_analysis_service.dart';
 
 String normalizeKey(String key) {
   return key
@@ -51,12 +53,28 @@ final Map<String, Map<String, num>> referansAraliklari = {
 
 String analizEt(String param, dynamic deger) {
   final key = normalizeKey(param);
-  if (key == 'tamidrartetkiki') {
-    if (deger != null && deger.toString().toLowerCase().contains('normal')) {
+  
+  // Metin tabanlı değerler için özel kontroller
+  if (key == 'tamidrartetkiki' || key.contains('idrar') || param.toLowerCase().contains('idrar')) {
+    if (deger == null) return 'Bilinmiyor';
+    
+    final degerStr = deger.toString().toLowerCase();
+    
+    // Normal durumlar
+    if (degerStr.contains('normal') || 
+        (degerStr.contains('negatif') && !degerStr.contains('pozitif'))) {
       return 'Normal';
-    } else {
+    }
+    
+    // Anormal durumlar - pozitif bulgular varsa
+    if (degerStr.contains('pozitif') || 
+        degerStr.contains('+') || 
+        degerStr.contains('eritrosit') || 
+        degerStr.contains('lökosit') && !degerStr.contains('negatif')) {
       return 'Anormal';
     }
+    
+    return 'Bilinmiyor';
   }
   if (deger == null) return 'Bilinmiyor';
   final ref = referansAraliklari[key];
@@ -88,9 +106,7 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
   @override
   void initState() {
     super.initState();
-    _isLoading = true;
     _checkApiKey();
-    _getAIAnalysis();
   }
   
   // API anahtarını kontrol et ve gerekirse dialog göster
@@ -98,6 +114,9 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
     final hasKey = await ApiKeyService.hasApiKey();
     if (!hasKey && mounted) {
       _showApiKeyDialog();
+    } else {
+      // API anahtarı varsa, otomatik olarak yapay zeka analizi yap
+      _getAIAnalysis();
     }
   }
   
@@ -119,7 +138,61 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
       ),
     );
   }
+  
+  // Tahlil verilerini Gemini API için metin formatına dönüştür
+  String _createAnalysisPrompt(Map<String, dynamic> tahlil) {
+    final StringBuffer prompt = StringBuffer();
+    
+    // Hasta bilgilerini ekle
+    final hastaAdi = tahlil['hasta_adi'] ?? 'Bilinmiyor';
+    final hastaYasi = tahlil['hasta_yasi'] ?? 'Bilinmiyor';
+    final hastaCinsiyet = tahlil['hasta_cinsiyet'] ?? 'Bilinmiyor';
+    final hastaSikayet = tahlil['sikayet'] ?? 'Bilinmiyor';
+    
+    prompt.writeln('Hasta Adı: $hastaAdi');
+    prompt.writeln('Yaş: $hastaYasi');
+    prompt.writeln('Cinsiyet: $hastaCinsiyet');
+    prompt.writeln('Ana Şikayet: $hastaSikayet');
+    prompt.writeln('\nTAHLİL SONUÇLARI:');
+    
+    // JSON formatında tahlil sonuçlarını hazırla
+    Map<String, dynamic> tahlilSonuclari = {};
+    
+    // Tahlil sonuçlarını ekle
+    if (tahlil.containsKey('sonuclar') && tahlil['sonuclar'] is Map) {
+      final sonuclar = tahlil['sonuclar'] as Map;
+      sonuclar.forEach((parametre, deger) {
+        prompt.writeln('$parametre: $deger');
+        tahlilSonuclari[parametre] = deger;
+      });
+    } else {
+      // Eski format için doğrudan tahlil map'ini kullan
+      tahlil.forEach((parametre, deger) {
+        if (parametre != 'hasta_adi' && parametre != 'hasta_yasi' && 
+            parametre != 'hasta_cinsiyet' && parametre != 'sikayet') {
+          prompt.writeln('$parametre: $deger');
+          tahlilSonuclari[parametre] = deger;
+        }
+      });
+    }
+    
+    // Yapay zeka için talimatları ekle
+    prompt.writeln('\nLütfen bu tahlil sonuçlarını analiz et ve aşağıdaki bilgileri sağla:');
+    prompt.writeln('1. Her tahlil değerinin durumunu belirt (Normal, Sınırda, Çok Düşük, Çok Yüksek)');
+    prompt.writeln('2. Anormal değerler ve bunların anlamı');
+    prompt.writeln('3. Olası tanılar veya sağlık sorunları');
+    prompt.writeln('4. Önerilen ek testler veya kontroller');
+    prompt.writeln('5. Genel sağlık durumu değerlendirmesi');
+    prompt.writeln('\nAyrıca, her tahlil değerinin durumunu JSON formatında da döndür. Örnek format:');
+    prompt.writeln('{"tahlil_durumlari": {"HGB": "Normal", "WBC": "Yüksek", "PLT": "Düşük"}}');
+    prompt.writeln('\nYanıtını HTML formatında düzenle, böylece uygulama içinde daha iyi görüntülenebilir.');
+    
+    return prompt.toString();
+  }
 
+  // Tahlil durumlarını saklamak için map
+  Map<String, String> _tahlilDurumlari = {};
+  
   Future<void> _getAIAnalysis() async {
     if (kDebugMode) {
       print('AI analiz fonksiyonu BAŞLADI');
@@ -128,18 +201,36 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
+        // Tahlil durumlarını sıfırla
+        _tahlilDurumlari = {};
       });
 
-      // Hugging Face API'yi çağır
+      // Gemini API'yi çağır
       String result = '';
       try {
         // 35 saniye zaman aşımı ile analiz fonksiyonunu çağır
-        final apiKey = await ApiKeyService.getApiKey();
-        final huggingFaceService = HuggingFaceAnalysisService(apiKey: apiKey);
-        final response = await huggingFaceService.analyze(widget.tahlil).timeout(const Duration(seconds: 35), onTimeout: () => 'AI analiz zaman aşımına uğradı. Lütfen tekrar deneyin.');
-        result = response;
+        // Doğrudan GeminiAnalysisService'in API anahtarını kullan
+        final apiKey = GeminiAnalysisService.defaultApiKey;
+        final geminiService = GeminiAnalysisService(apiKey: apiKey);
+        
+        if (kDebugMode) {
+          print('Kullanılan API anahtarı: $apiKey');
+        }
+        
+        // Tahlil verilerini string'e dönüştür
+        String tahlilPrompt = _createAnalysisPrompt(widget.tahlil);
+        
+        final response = await geminiService.analyze(tahlilPrompt).timeout(const Duration(seconds: 35), onTimeout: () => 'AI analiz zaman aşımına uğradı. Lütfen tekrar deneyin.');
+        
+        // HTML yanıtını temizle
+        result = _cleanHtmlResponse(response);
+        
+        // JSON formatındaki tahlil durumlarını çıkar
+        _extractTahlilDurumlari(result);
+        
         if (kDebugMode) {
           print('AI analiz sonucu: $result');
+          print('Tahlil durumları: $_tahlilDurumlari');
         }
       } catch (e) {
         result = 'AI analiz sırasında beklenmeyen bir hata oluştu: $e';
@@ -191,7 +282,7 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tahlil Analiz Sonuçları', style: TextStyle(fontWeight: FontWeight.w600)), 
+        title: const Text('Son Tahlil Sonuçları', style: TextStyle(fontWeight: FontWeight.w600)), 
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -234,86 +325,24 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
                 final errorMessage = _errorMessage;
                 final isError = errorMessage.isNotEmpty;
                 
-                // UI güncelleme işlemi
-                  if (isError) {
-                    showDialog(
-                      context: context,
-                      builder: (dialogContext) => AlertDialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        title: const Text('Hata', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                        content: Text(errorMessage),
-                        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tamam'))],
-                      ),
-                    );
-                  } else {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.grey.shade50,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                      ),
-                      builder: (_) => DraggableScrollableSheet(
-                      expand: false,
-                      initialChildSize: 0.7,
-                      minChildSize: 0.4,
-                      maxChildSize: 0.95,
-                      builder: (context, scrollController) => SingleChildScrollView(
-                        controller: scrollController,
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Center(
-                              child: Container(
-                                width: 60,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF00BCD4), Color(0xFF00ACC1)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.cyan.withAlpha(77),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.analytics, color: Colors.white, size: 28),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    'Yapay Zeka Analiz Raporu',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildAIAnalysisContent(_aiAnalysisResult),
-                          ],
-                        ),
-                      ),
+                // Sadece hata durumunda dialog göster
+                if (isError) {
+                  showDialog(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: const Text('Hata', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                      content: Text(errorMessage),
+                      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tamam'))],
+                    ),
+                  );
+                } else {
+                  // Başarılı analiz durumunda sadece bir bildirim göster
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Tahlil analizi başarıyla güncellendi'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 2),
                     ),
                   );
                 }
@@ -333,22 +362,64 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
           itemBuilder: (context, index) {
             final key = entries[index].key;
             final value = entries[index].value;
-            final analiz = analizEt(key, value);
+            
+            // Hasta bilgilerini atla
+            if (key == 'hasta_adi' || key == 'hasta_yasi' || key == 'hasta_cinsiyet' || key == 'sikayet') {
+              return const SizedBox.shrink(); // Boş widget döndür
+            }
+            
+            // Öncelikle yapay zekadan gelen durumu kullan
+            String analiz = '';
+            if (_tahlilDurumlari.containsKey(key.toUpperCase())) {
+              analiz = _tahlilDurumlari[key.toUpperCase()]!;
+            } else {
+              // Yapay zeka analizi yoksa, referans aralıklarına göre basit analiz yap
+              if (_isLoading) {
+                analiz = "Analiz ediliyor...";
+              } else {
+                final normalizedKey = normalizeKey(key);
+                
+                // Önce sayısal değer olarak deneyip referans aralıklarını kontrol et
+                final deger = double.tryParse(value.toString());
+                if (referansAraliklari.containsKey(normalizedKey) && deger != null) {
+                  analiz = analizEt(key, deger);
+                } 
+                // Sayısal değilse veya referans aralığı yoksa, metin tabanlı analiz dene
+                else if (key.contains('idrar') || key.toLowerCase().contains('idrar') || 
+                         key == 'tamidrartetkiki' || key.contains('tetkik')) {
+                  analiz = analizEt(key, value);
+                } else {
+                  analiz = "Bilinmiyor";
+                }
+              }
+            }
+            
             Color renk;
             IconData statusIcon;
             
-            if (analiz == 'Normal') {
+            // Yapay zekadan gelen durum metinleri farklı olabilir, bu yüzden içerik kontrolü yap
+            if (analiz.toLowerCase() == 'normal') {
               renk = Colors.green.shade700;
               statusIcon = Icons.check_circle;
-            } else if (analiz == 'Sınırda') {
+            } else if (analiz.toLowerCase().contains('sınırda') || 
+                       analiz.toLowerCase().contains('sinirda') ||
+                       analiz.toLowerCase().contains('sınır') ||
+                       analiz.toLowerCase().contains('sinir')) {
               renk = Colors.amber.shade700;
               statusIcon = Icons.warning_amber_rounded;
-            } else if (analiz == 'Çok Düşük' || analiz == 'Çok Yüksek' || analiz == 'Anormal') {
+            } else if (analiz.toLowerCase().contains('anormal')) {
+              renk = Colors.purple.shade700;
+              statusIcon = Icons.error_outline;
+            } else if (analiz.toLowerCase().contains('düşük') || 
+                       analiz.toLowerCase().contains('dusuk') || 
+                       analiz.toLowerCase().contains('yüksek') || 
+                       analiz.toLowerCase().contains('yuksek')) {
               renk = Colors.red.shade700;
               statusIcon = Icons.error;
             } else {
-              renk = Colors.grey.shade700;
-              statusIcon = Icons.help;
+              // Varsayılan olarak normal kabul et
+              renk = Colors.green.shade700;
+              statusIcon = Icons.check_circle;
             }
             
             return Card(
@@ -418,342 +489,179 @@ class _TahlilAnalizSonuclariPageState extends State<TahlilAnalizSonuclariPage> {
     );
   }
   
-  Widget _buildAIAnalysisContent(String content) {
-    // Analiz içeriğini bölümlere ayır
-    final sections = content.split('**').where((s) => s.trim().isNotEmpty).toList();
-    
-    List<Widget> widgets = [];
-    
-    // Bölümleri tablolar halinde göster
-    for (int i = 0; i < sections.length; i += 2) {
-      if (i + 1 >= sections.length) break;
+  // HTML yanıtını temizle ve düzgün formata getir
+  String _cleanHtmlResponse(String response) {
+    // Eğer yanıt HTML içeriyorsa
+    if (response.contains('<html') || response.contains('html>') || 
+        response.contains('"html') || response.contains('\'html') || 
+        response.contains('`html')) {
       
-      final title = sections[i].trim();
-      final content = sections[i + 1].trim();
-      
-      // Başlık için ikon ve renk seç
-      IconData headerIcon;
-      Color headerIconColor;
-      Color headerBgColor;
-      if (title.toLowerCase().contains('anormal')) {
-        headerIcon = Icons.warning_amber_rounded;
-        headerIconColor = Colors.deepOrange;
-        headerBgColor = Colors.deepOrange.shade50;
-      } else if (title.toLowerCase().contains('tanı')) {
-        headerIcon = Icons.search;
-        headerIconColor = Colors.purple;
-        headerBgColor = Colors.purple.shade50;
-      } else if (title.toLowerCase().contains('test')) {
-        headerIcon = Icons.science;
-        headerIconColor = Colors.blue;
-        headerBgColor = Colors.blue.shade50;
-      } else if (title.toLowerCase().contains('tedavi')) {
-        headerIcon = Icons.medical_services;
-        headerIconColor = Colors.green;
-        headerBgColor = Colors.green.shade50;
-      } else if (title.toLowerCase().contains('kontrol')) {
-        headerIcon = Icons.calendar_today;
-        headerIconColor = Colors.indigo;
-        headerBgColor = Colors.indigo.shade50;
-      } else if (title.toLowerCase().contains('bilgi')) {
-        headerIcon = Icons.info;
-        headerIconColor = Colors.teal;
-        headerBgColor = Colors.teal.shade50;
-      } else {
-        headerIcon = Icons.info_outline;
-        headerIconColor = Colors.cyan;
-        headerBgColor = Colors.cyan.shade50;
+      try {
+        // HTML etiketlerini temizle
+        response = response.replaceAll(RegExp(r'<[^>]*>'), '');
+      } catch (e) {
+        debugPrint('HTML temizleme hatası: $e');
       }
       
-      // Başlık widget'i
-      widgets.add(
-        Container(
-          margin: const EdgeInsets.only(top: 20, bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: headerBgColor,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: headerIconColor.withAlpha(51),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Icon(headerIcon, color: headerIconColor, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16, 
-                    fontWeight: FontWeight.bold, 
-                    color: headerIconColor,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      // Tırnak işaretlerini ve kaçış karakterlerini temizle
+      response = response.replaceAll('"', '');
+      response = response.replaceAll('\'', '');
+      response = response.replaceAll('`', '');
+      response = response.replaceAll('\\n', '');
       
-      // İçerik satırlarını ayarla
-      final lines = content.split('\n')
-          .where((line) => line.trim().isNotEmpty)
-          .map((line) => line.trim())
-          .toList();
+      // HTML başlangıç ve bitiş etiketlerini düzelt
+      if (!response.contains('<html') && response.contains('html')) {
+        response = response.replaceAll('html', '<html>');
+      }
       
-      // Tablo oluştur
-      widgets.add(
-        Card(
-          elevation: 3,
-          shadowColor: Colors.black12,
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Table(
-              columnWidths: const {
-                0: FixedColumnWidth(28), // İkon sütunu
-                1: FlexColumnWidth(4),   // İçerik sütunu
-              },
-              border: TableBorder.symmetric(
-                inside: BorderSide(color: Colors.grey.shade100, width: 1),
-              ),
-              children: lines.map((line) {
-                // İçeriğe göre anlamlı ikon ve renk seç
-                IconData rowIcon;
-                Color rowIconColor;
-                
-                // Ön ekleri kaldır
-                if (line.startsWith('-') || line.startsWith('•')) {
-                  line = line.replaceFirst(RegExp(r'^[-•]\s*'), '');
-                } else if (RegExp(r'^\d+\.').hasMatch(line)) {
-                  line = line.replaceFirst(RegExp(r'^\d+\.\s*'), '');
-                }
-                
-                // Hemoglobin, kan değerleri
-                if (line.toLowerCase().contains('hemoglobin') || line.toLowerCase().contains('hgb')) {
-                  rowIcon = Icons.bloodtype;
-                  rowIconColor = Colors.red.shade700;
-                }
-                // Lökosit, beyaz kan hücresi
-                else if (line.toLowerCase().contains('lökosit') || line.toLowerCase().contains('wbc')) {
-                  rowIcon = Icons.shield;
-                  rowIconColor = Colors.blue.shade700;
-                }
-                // Trombosit, pıhtılaşma
-                else if (line.toLowerCase().contains('plt') || line.toLowerCase().contains('trombosit')) {
-                  rowIcon = Icons.healing;
-                  rowIconColor = Colors.purple;
-                }
-                // CRP, iltihap göstergesi
-                else if (line.toLowerCase().contains('crp')) {
-                  rowIcon = Icons.whatshot;
-                  rowIconColor = Colors.orange;
-                }
-                // Karaciğer enzimleri
-                else if (line.toLowerCase().contains('alt') || line.toLowerCase().contains('ast') || 
-                         line.toLowerCase().contains('ggt')) {
-                  rowIcon = Icons.monitor_heart;
-                  rowIconColor = Colors.brown;
-                }
-                // Böbrek fonksiyonları
-                else if (line.toLowerCase().contains('kreatinin') || line.toLowerCase().contains('üre')) {
-                  rowIcon = Icons.filter_alt;
-                  rowIconColor = Colors.amber.shade700;
-                }
-                // Elektrolit değerleri
-                else if (line.toLowerCase().contains('sodyum') || line.toLowerCase().contains('potasyum') || 
-                         line.toLowerCase().contains('kalsiyum') || line.toLowerCase().contains('magnezyum')) {
-                  rowIcon = Icons.bolt;
-                  rowIconColor = Colors.yellow.shade800;
-                }
-                // Demir, ferritin
-                else if (line.toLowerCase().contains('demir') || line.toLowerCase().contains('ferritin')) {
-                  rowIcon = Icons.fitness_center;
-                  rowIconColor = Colors.grey.shade700;
-                }
-                // Vitaminler
-                else if (line.toLowerCase().contains('b12') || line.toLowerCase().contains('d3') || 
-                         line.toLowerCase().contains('folat')) {
-                  rowIcon = Icons.medication;
-                  rowIconColor = Colors.green;
-                }
-                // Kan şekeri
-                else if (line.toLowerCase().contains('glukoz') || line.toLowerCase().contains('şeker')) {
-                  rowIcon = Icons.grain;
-                  rowIconColor = Colors.amber;
-                }
-                // Ateş, vücut ısısı
-                else if (line.toLowerCase().contains('ateş') || line.toLowerCase().contains('ısı')) {
-                  rowIcon = Icons.thermostat;
-                  rowIconColor = Colors.red;
-                }
-                // Nabız, kalp atış hızı
-                else if (line.toLowerCase().contains('nabız') || line.toLowerCase().contains('kalp')) {
-                  rowIcon = Icons.favorite;
-                  rowIconColor = Colors.red.shade400;
-                }
-                // Tansiyon
-                else if (line.toLowerCase().contains('tansiyon')) {
-                  rowIcon = Icons.speed;
-                  rowIconColor = Colors.blue.shade800;
-                }
-                // Kan kültürü, mikrobiyoloji
-                else if (line.toLowerCase().contains('kültür')) {
-                  rowIcon = Icons.biotech;
-                  rowIconColor = Colors.teal;
-                }
-                // Sedimentasyon
-                else if (line.toLowerCase().contains('sedim')) {
-                  rowIcon = Icons.hourglass_bottom;
-                  rowIconColor = Colors.deepPurple;
-                }
-                // İdrar tetkiki
-                else if (line.toLowerCase().contains('idrar')) {
-                  rowIcon = Icons.opacity;
-                  rowIconColor = Colors.yellow;
-                }
-                // Antibiyotik, tedavi
-                else if (line.toLowerCase().contains('antibiyotik') || line.toLowerCase().contains('tedavi')) {
-                  rowIcon = Icons.medication_liquid;
-                  rowIconColor = Colors.green.shade700;
-                }
-                // Su tüketimi, hidrasyon
-                else if (line.toLowerCase().contains('su') || line.toLowerCase().contains('sıvı') || 
-                         line.toLowerCase().contains('hidrasyon')) {
-                  rowIcon = Icons.water_drop;
-                  rowIconColor = Colors.blue;
-                }
-                // Dinlenme, istirahat
-                else if (line.toLowerCase().contains('dinlen') || line.toLowerCase().contains('istirahat')) {
-                  rowIcon = Icons.hotel;
-                  rowIconColor = Colors.indigo;
-                }
-                // Kontrol, takip
-                else if (line.toLowerCase().contains('kontrol') || line.toLowerCase().contains('takip')) {
-                  rowIcon = Icons.event_available;
-                  rowIconColor = Colors.teal;
-                }
-                // Enfeksiyon, bakteriyel
-                else if (line.toLowerCase().contains('enfeksiyon') || line.toLowerCase().contains('bakteri')) {
-                  rowIcon = Icons.coronavirus;
-                  rowIconColor = Colors.red.shade800;
-                }
-                // Anemi
-                else if (line.toLowerCase().contains('anemi')) {
-                  rowIcon = Icons.bloodtype_outlined;
-                  rowIconColor = Colors.red.shade300;
-                }
-                // İnflamatuar
-                else if (line.toLowerCase().contains('inflamat') || line.toLowerCase().contains('iltihap')) {
-                  rowIcon = Icons.local_fire_department;
-                  rowIconColor = Colors.deepOrange;
-                }
-                // Uyarı, dikkat
-                else if (line.toLowerCase().contains('uyarı') || line.toLowerCase().contains('dikkat')) {
-                  rowIcon = Icons.priority_high;
-                  rowIconColor = Colors.red;
-                }
-                // Anormal değerler
-                else if (line.toLowerCase().contains('anormal') || line.toLowerCase().contains('yüksek') || 
-                         line.toLowerCase().contains('düşük') || line.toLowerCase().contains('kırmızı')) {
-                  rowIcon = Icons.error_outline;
-                  rowIconColor = Colors.red;
-                }
-                // Normal değerler
-                else if (line.toLowerCase().contains('normal') || line.toLowerCase().contains('yeşil')) {
-                  rowIcon = Icons.check_circle_outline;
-                  rowIconColor = Colors.green;
-                }
-                // Sınırda değerler
-                else if (line.toLowerCase().contains('sınırda') || line.toLowerCase().contains('sarı')) {
-                  rowIcon = Icons.warning_amber_outlined;
-                  rowIconColor = Colors.orange;
-                }
-                // Genel test, tetkik
-                else if (line.toLowerCase().contains('test') || line.toLowerCase().contains('tetkik')) {
-                  rowIcon = Icons.science_outlined;
-                  rowIconColor = Colors.blue.shade700;
-                }
-                // Varsayılan ikon
-                else {
-                  rowIcon = Icons.arrow_right;
-                  rowIconColor = Colors.indigo;
-                }
-                
-                return TableRow(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
-                  ),
-                  children: [
-                    // İkon hücresi
-                    TableCell(
-                      verticalAlignment: TableCellVerticalAlignment.middle,
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: rowIconColor.withAlpha(26),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(rowIcon, size: 16, color: rowIconColor),
-                        ),
-                      ),
-                    ),
-                    // İçerik hücresi
-                    TableCell(
-                      verticalAlignment: TableCellVerticalAlignment.middle,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                        child: Text(
-                          line,
-                          style: const TextStyle(
-                            fontSize: 14, 
-                            color: Color(0xFF2C3E50),
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      );
+      // HTML başlangıcını düzelt
+      if (response.startsWith('<html') && !response.startsWith('<html>')) {
+        response = response.replaceFirst('<html', '<html>');
+      }
+      
+      // HTML sonunu düzelt
+      if (response.contains('</html') && !response.contains('</html>')) {
+        response = response.replaceAll('</html', '</html>');
+      }
+      
+      // Tam bir HTML belgesi oluştur
+      if (!response.contains('<html>')) {
+        response = '<html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;line-height:1.5;} h1{color:#00838F;} h2{color:#0097A7;} .yuksek{color:red;} .dusuk{color:blue;} .sinirda{color:orange;} .normal{color:green;}</style></head><body>' + response + '</body></html>';
+      }
     }
     
-    // Eğer widgets boşsa veya analiz formatı beklediğimiz gibi değilse
-    if (widgets.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE0E0E0)),
-        ),
-        child: Text(
-          content, 
-          style: const TextStyle(fontSize: 14, color: Color(0xFF2C3E50), height: 1.3),
-        ),
-      );
-    }
-    
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets),
-      ),
-    );
+    return response;
   }
+  
+  // Yapay zeka yanıtından tahlil durumlarını çıkar
+  void _extractTahlilDurumlari(String response) {
+      if (kDebugMode) {
+        print('Tahlil durumları çıkarılıyor...');
+        print('Yanıt: ${response.substring(0, min(200, response.length))}...');
+      }
+      
+      // Basit bir çözüm: Tüm tahlil parametrelerini manuel olarak kontrol et
+      // ve her biri için durumu belirle
+      final entries = widget.tahlil.entries.toList();
+      for (final entry in entries) {
+        final key = entry.key;
+        
+        // Hasta bilgileri ve diğer meta verileri atla
+        if (key == 'hasta_adi' || key == 'hasta_yasi' || key == 'hasta_cinsiyet' || 
+            key == 'sikayet' || key == 'id' || key == 'tarih' || key == 'doktor') {
+          continue;
+        }
+        
+        // Önce yanıtta bu parametre için bir durum olup olmadığını kontrol et
+        final normalPattern = RegExp('$key.*?normal', caseSensitive: false);
+        final yuksekPattern = RegExp('$key.*?yüksek|$key.*?yuksek', caseSensitive: false);
+        final dusukPattern = RegExp('$key.*?düşük|$key.*?dusuk', caseSensitive: false);
+        final sinirdaPattern = RegExp('$key.*?sınırda|$key.*?sinirda|$key.*?sınır değerlerde|$key.*?sinir degerlerde', caseSensitive: false);
+        
+        // Referans aralıkları kontrol et
+        final normalizedKey = normalizeKey(key);
+        final ref = referansAraliklari[normalizedKey];
+        final deger = double.tryParse(entry.value.toString());
+        
+        if (ref != null && deger != null) {
+          // Referans aralığı varsa, değeri kontrol et
+          final min = ref['min']!;
+          final max = ref['max']!;
+          final delta = (max - min) * 0.1; // %10 tolerans
+          
+          if (deger >= min && deger <= max) {
+            _tahlilDurumlari[key] = 'Normal';
+          } else if ((deger >= min - delta && deger < min) || (deger > max && deger <= max + delta)) {
+            _tahlilDurumlari[key] = 'Sınırda';
+          } else if (deger < min - delta) {
+            _tahlilDurumlari[key] = 'Düşük';
+          } else if (deger > max + delta) {
+            _tahlilDurumlari[key] = 'Yüksek';
+          }
+        } else {
+          // Referans aralığı yoksa, yanıt içeriğini kontrol et
+          if (normalPattern.hasMatch(response)) {
+            _tahlilDurumlari[key] = 'Normal';
+          } else if (yuksekPattern.hasMatch(response)) {
+            _tahlilDurumlari[key] = 'Yüksek';
+          } else if (dusukPattern.hasMatch(response)) {
+            _tahlilDurumlari[key] = 'Düşük';
+          } else if (sinirdaPattern.hasMatch(response)) {
+            _tahlilDurumlari[key] = 'Sınırda';
+          // Referans aralıkları kontrol et
+          final normalizedKey = normalizeKey(key);
+          final ref = referansAraliklari[normalizedKey];
+          final deger = double.tryParse(entry.value.toString());
+          
+          if (ref != null && deger != null) {
+            // Referans aralığı varsa, değeri kontrol et
+            final min = ref['min']!;
+            final max = ref['max']!;
+            final delta = (max - min) * 0.1; // %10 tolerans
+            
+            if (deger >= min && deger <= max) {
+              _tahlilDurumlari[key] = 'Normal';
+            } else if ((deger >= min - delta && deger < min) || (deger > max && deger <= max + delta)) {
+              _tahlilDurumlari[key] = 'Sınırda';
+            } else if (deger < min - delta) {
+              _tahlilDurumlari[key] = 'Düşük';
+            } else if (deger > max + delta) {
+              _tahlilDurumlari[key] = 'Yüksek';
+            }
+          } else {
+            // Referans aralığı yoksa, yanıt içeriğini kontrol et
+            if (normalPattern.hasMatch(response)) {
+              _tahlilDurumlari[key] = 'Normal';
+            } else if (yuksekPattern.hasMatch(response)) {
+              _tahlilDurumlari[key] = 'Yüksek';
+            } else if (dusukPattern.hasMatch(response)) {
+              _tahlilDurumlari[key] = 'Düşük';
+            } else if (sinirdaPattern.hasMatch(response)) {
+              _tahlilDurumlari[key] = 'Sınırda';
+            } else {
+              // Eğer hiçbir durum bulunamazsa, varsayılan olarak 'Normal' kabul et
+              _tahlilDurumlari[key] = 'Normal';
+            }
+          }
+        }
+      }
+      
+      // JSON formatındaki tahlil durumlarını ara (eski yöntem)
+      try {
+        RegExp jsonRegex = RegExp(r'\{\s*"tahlil_durumlari"\s*:\s*\{[^\}]*\}\s*\}');
+        Match? match = jsonRegex.firstMatch(response);
+        
+        if (match != null) {
+          String jsonStr = match.group(0) ?? '';
+          
+          // JSON string'i temizle
+          jsonStr = jsonStr.replaceAll("'", '"');
+          jsonStr = jsonStr.replaceAll('\\"', '"');
+          
+          // JSON'u parse et
+          Map<String, dynamic> jsonData = jsonDecode(jsonStr);
+          
+          if (jsonData.containsKey('tahlil_durumlari')) {
+            Map<String, dynamic> durumlar = jsonData['tahlil_durumlari'];
+            
+            // Tahlil durumlarını güncelle
+            durumlar.forEach((key, value) {
+              if (value is String) {
+                _tahlilDurumlari[key.toUpperCase()] = value;
+              }
+            });
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('JSON parse hatası (beklenen bir durum): $e');
+        }
+      }
+      
+      if (kDebugMode) {
+        print('Tahlil durumları çıkarıldı: $_tahlilDurumlari');
+      }
+    }
+  }
+  // Bu metod artık kullanılmıyor
 }
