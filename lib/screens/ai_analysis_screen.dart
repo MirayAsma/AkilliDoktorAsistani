@@ -20,6 +20,9 @@ import 'login_screen.dart';
 // API anahtarı artık güvenli bir şekilde saklanıyor
 // Kullanıcı ilk kullanımda API anahtarını girecek
 
+// GlobalKey ile _HastaListesiWidgetState'e erişim sağlayacağız
+final GlobalKey<_HastaListesiWidgetState> _hastaListesiKey = GlobalKey<_HastaListesiWidgetState>();
+
 final List<Map<String, dynamic>> vakalar = [
   {
     'ad_soyad': 'Elif Demir',
@@ -200,6 +203,20 @@ class AIAnalysisScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // Yenileme butonu - sadece ikon olarak
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white, size: 24),
+                        tooltip: 'Hasta listesini yenile',
+                        onPressed: () {
+                          // Hasta listesini yenile
+                          if (_hastaListesiKey.currentState != null) {
+                            _hastaListesiKey.currentState!._fetchVakalar();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Hasta listesi yenileniyor...'), duration: Duration(seconds: 1)),
+                            );
+                          }
+                        },
+                      ),
                       // Bildirim ikonu
                       const NotificationIconButton(),
                     ],
@@ -249,7 +266,7 @@ class AIAnalysisScreen extends StatelessWidget {
         body: TabBarView(
           children: [
             // Tahlil Analizi Ekranı
-            _HastaListesiWidget(),
+            _HastaListesiWidget(key: _hastaListesiKey),
             
             // Chatbot Ekranı
             _GeminiChatbotWidget(),
@@ -262,6 +279,9 @@ class AIAnalysisScreen extends StatelessWidget {
 }
 
 class _HastaListesiWidget extends StatefulWidget {
+  // GlobalKey ile erişim için constructor'a key parametresi ekliyoruz
+  const _HastaListesiWidget({Key? key}) : super(key: key);
+  
   @override
   State<_HastaListesiWidget> createState() => _HastaListesiWidgetState();
 }
